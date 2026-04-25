@@ -1,0 +1,1025 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Preco Lab — 先預測，再投放。</title>
+<meta name="description" content="Preco Lab 是一間用 AI 群體智能預測市場反應的工作室。把 Landing Page、品牌、文案交給 50 個 AI 消費者測試，燒廣告費之前先知道哪版會贏。" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=Italianno&family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@500;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #F5F1EA;
+    --bg-alt: #EDE5D4;
+    --ink: #1A1A1A;
+    --ink-2: #3D3D3D;
+    --ink-3: #6B6459;
+    --ink-4: #8A8275;
+    --accent: #0F2A44;
+    --accent-2: #1E4976;
+    --accent-bg: #E4EAF1;
+    --border: #D4C9B3;
+    --border-soft: #E3DBCB;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Inter', 'Noto Sans TC', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 17px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  h1, h2, h3, .serif {
+    font-family: 'Fraunces', 'Noto Serif TC', Georgia, serif;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+  }
+  a { color: inherit; text-decoration: none; }
+  .container { max-width: 1080px; margin: 0 auto; padding: 0 32px; }
+  .container-narrow { max-width: 840px; margin: 0 auto; padding: 0 32px; }
+
+  /* Nav */
+  nav.top {
+    position: sticky; top: 0; z-index: 50;
+    background: rgba(245, 241, 234, 0.88);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border-soft);
+  }
+  nav.top .inner {
+    max-width: 1080px; margin: 0 auto; padding: 18px 32px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .logo { display: flex; align-items: center; gap: 10px; font-family: 'Fraunces', serif; font-weight: 600; font-size: 18px; letter-spacing: -0.01em; }
+  .logo-mark {
+    width: 28px; height: 28px; border-radius: 6px;
+    background: var(--accent); color: var(--bg);
+    display: inline-flex; align-items: center; justify-content: center;
+    font-family: 'Fraunces', serif; font-weight: 600; font-size: 15px;
+  }
+  nav.top .links { display: flex; align-items: center; gap: 32px; font-size: 14px; color: var(--ink-2); }
+  nav.top .links a { transition: color .2s; }
+  nav.top .links a:hover { color: var(--accent); }
+  .btn-primary {
+    display: inline-block; padding: 11px 22px;
+    background: var(--accent); color: var(--bg);
+    border-radius: 8px; font-size: 14px; font-weight: 600;
+    transition: background .2s, transform .2s;
+    border: none; cursor: pointer;
+  }
+  .btn-primary:hover { background: var(--accent-2); }
+  .btn-secondary {
+    display: inline-block; padding: 11px 22px;
+    background: transparent; color: var(--ink);
+    border: 1px solid var(--border); border-radius: 8px;
+    font-size: 14px; font-weight: 500;
+    transition: border-color .2s, background .2s;
+  }
+  .btn-secondary:hover { border-color: var(--ink); background: var(--border-soft); }
+
+  /* Hero */
+  .hero {
+    padding: 120px 0 100px;
+    border-bottom: 1px solid var(--border-soft);
+  }
+  .hero .eyebrow {
+    font-size: 13px; font-weight: 500; color: var(--accent);
+    letter-spacing: 0.12em; text-transform: uppercase;
+    margin-bottom: 24px;
+  }
+  .hero h1 {
+    font-family: 'Italianno', 'Fraunces', cursive;
+    font-size: clamp(76px, 11vw, 160px);
+    font-weight: 400;
+    line-height: 0.95;
+    letter-spacing: 0.01em;
+    max-width: 900px;
+    margin-bottom: 32px;
+  }
+  .hero h1 em {
+    font-style: normal; font-weight: 400;
+    color: var(--accent);
+  }
+  .hero .lede {
+    font-size: 20px; line-height: 1.55;
+    color: var(--ink-2); max-width: 640px;
+    margin-bottom: 40px;
+  }
+  .hero .cta-row { display: flex; gap: 12px; flex-wrap: wrap; }
+
+  /* Section */
+  section.block { padding: 110px 0; border-bottom: 1px solid var(--border-soft); }
+  section.block.alt { background: var(--bg-alt); }
+  .section-eyebrow {
+    font-size: 12px; font-weight: 600; color: var(--accent);
+    letter-spacing: 0.15em; text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+  .section-h2 {
+    font-size: clamp(32px, 4.5vw, 48px);
+    line-height: 1.15; max-width: 680px;
+    margin-bottom: 20px;
+  }
+  .section-intro {
+    font-size: 18px; color: var(--ink-2); max-width: 620px;
+    margin-bottom: 72px; line-height: 1.6;
+  }
+
+  /* Engines */
+  .engines { display: grid; gap: 48px; }
+  @media (min-width: 860px) { .engines { grid-template-columns: repeat(3, 1fr); gap: 56px; } }
+  .engine {
+    padding-top: 24px;
+    border-top: 1px solid var(--ink);
+  }
+  .engine .num {
+    font-family: 'Fraunces', serif; font-size: 14px; font-weight: 500;
+    color: var(--ink-3); letter-spacing: 0.1em; margin-bottom: 18px;
+  }
+  .engine h3 {
+    font-family: 'Italianno', 'Fraunces', cursive;
+    font-size: 56px; font-weight: 400;
+    letter-spacing: 0.01em; line-height: 1;
+    margin-bottom: 8px; color: var(--accent);
+  }
+  .engine .role {
+    font-size: 13px; color: var(--accent); font-weight: 500;
+    margin-bottom: 18px; letter-spacing: 0.05em;
+  }
+  .engine p {
+    color: var(--ink-2); margin-bottom: 22px; font-size: 15.5px;
+  }
+  .engine ul { list-style: none; }
+  .engine ul li {
+    font-size: 14.5px; color: var(--ink-2);
+    padding: 8px 0; border-top: 1px solid var(--border-soft);
+  }
+  .engine ul li:first-child { border-top: 1px dashed var(--border); }
+
+  /* Services */
+  .services { display: grid; gap: 24px; }
+  @media (min-width: 800px) { .services { grid-template-columns: repeat(2, 1fr); gap: 28px; } }
+  .service {
+    background: var(--bg);
+    border: 1px solid var(--border-soft);
+    border-radius: 12px;
+    padding: 36px 32px;
+    transition: border-color .25s, transform .25s;
+  }
+  .service:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .service.featured { background: var(--accent-bg); border-color: var(--accent); }
+  .service-tag {
+    display: inline-block; padding: 4px 10px;
+    background: var(--accent); color: var(--bg);
+    font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
+    border-radius: 4px; margin-bottom: 20px;
+  }
+  .service.outline-tag .service-tag { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+  .service h3 { font-size: 24px; margin-bottom: 10px; }
+  .service .price {
+    font-family: 'Fraunces', serif; font-size: 22px; font-weight: 500;
+    color: var(--ink); margin-bottom: 18px;
+  }
+  .service .price small { font-family: 'Inter', sans-serif; font-size: 13px; color: var(--ink-3); font-weight: 400; margin-left: 4px; }
+  .service p { color: var(--ink-2); font-size: 15px; margin-bottom: 22px; line-height: 1.6; }
+  .service ul { list-style: none; }
+  .service ul li {
+    font-size: 14px; color: var(--ink-2); padding: 7px 0;
+    display: flex; align-items: flex-start; gap: 10px;
+  }
+  .service ul li::before {
+    content: '→'; color: var(--accent); font-weight: 600;
+    flex-shrink: 0;
+  }
+
+  /* Why */
+  .why-grid { display: grid; gap: 32px; }
+  @media (min-width: 760px) { .why-grid { grid-template-columns: 1fr 1fr; gap: 56px; } }
+  .why-col h3 {
+    font-family: 'Inter', sans-serif; font-weight: 600; font-size: 15px;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    padding-bottom: 16px; margin-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .why-col.vs h3 { color: var(--ink-4); }
+  .why-col.us h3 { color: var(--accent); }
+  .why-col ul { list-style: none; }
+  .why-col ul li {
+    padding: 18px 0; border-bottom: 1px solid var(--border-soft);
+    font-size: 16px; color: var(--ink-2); line-height: 1.5;
+  }
+  .why-col.us ul li { color: var(--ink); font-weight: 500; }
+
+  /* Cases */
+  .cases { display: grid; gap: 28px; }
+  @media (min-width: 800px) { .cases { grid-template-columns: repeat(3, 1fr); } }
+  .case {
+    padding: 28px 28px 32px;
+    background: var(--bg);
+    border: 1px solid var(--border-soft);
+    border-radius: 12px;
+    transition: border-color .25s;
+  }
+  .case:hover { border-color: var(--accent); }
+  .case-meta {
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--ink-3); margin-bottom: 20px;
+  }
+  .case-status { color: var(--accent); font-weight: 600; }
+  .case h3 { font-size: 19px; margin-bottom: 10px; line-height: 1.35; }
+  .case p { color: var(--ink-2); font-size: 14.5px; line-height: 1.55; margin-bottom: 18px; }
+  .case .detail { font-size: 13px; color: var(--ink-3); padding-top: 14px; border-top: 1px dashed var(--border); }
+
+  /* Contact */
+  .contact { text-align: center; padding: 120px 0; }
+  .contact h2 { font-size: clamp(32px, 4.5vw, 52px); line-height: 1.15; margin-bottom: 24px; }
+  .contact h2 em { font-style: italic; color: var(--accent); }
+  .contact .lede { font-size: 18px; color: var(--ink-2); max-width: 560px; margin: 0 auto 40px; line-height: 1.6; }
+  .contact-cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-bottom: 64px; }
+  .contact-info {
+    display: grid; gap: 24px; max-width: 720px; margin: 0 auto;
+    padding-top: 48px; border-top: 1px solid var(--border-soft);
+    text-align: left;
+  }
+  @media (min-width: 640px) { .contact-info { grid-template-columns: repeat(3, 1fr); } }
+  .contact-info .label {
+    font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--ink-4); font-weight: 600; margin-bottom: 6px;
+  }
+  .contact-info .value { font-size: 15px; color: var(--ink); }
+  .contact-info a:hover { color: var(--accent); }
+
+  /* Footer */
+  footer {
+    padding: 32px 0; border-top: 1px solid var(--border-soft);
+    font-size: 13px; color: var(--ink-3);
+  }
+  footer .inner {
+    max-width: 1080px; margin: 0 auto; padding: 0 32px;
+    display: flex; flex-wrap: wrap; gap: 16px;
+    justify-content: space-between; align-items: center;
+  }
+
+  /* Disclaimer */
+  .disclaimer {
+    font-size: 12.5px; color: var(--ink-4); font-style: italic;
+    margin-top: 48px; padding-top: 24px; border-top: 1px dashed var(--border);
+    max-width: 760px;
+  }
+
+  /* Fade-up */
+  .fade-up { opacity: 0; transform: translateY(16px); transition: opacity .7s ease-out, transform .7s ease-out; }
+  .fade-up.visible { opacity: 1; transform: translateY(0); }
+
+  /* ================= Iris Demo Animation ================= */
+  .demo-stage {
+    position: relative;
+    background: var(--bg-alt);
+    border: 1px solid var(--border-soft);
+    border-radius: 16px;
+    padding: 48px 32px 32px;
+    margin-top: 48px;
+    overflow: hidden;
+  }
+  .stage-inner {
+    position: relative;
+    height: 420px;
+    max-width: 960px;
+    margin: 0 auto;
+  }
+
+  /* Product card */
+  .demo-product {
+    position: absolute;
+    top: 50%; left: 0;
+    transform: translateY(-50%) translateY(12px) scale(0.96);
+    width: 250px;
+    background: var(--bg);
+    border: 1.5px solid var(--accent);
+    border-radius: 10px;
+    padding: 22px 24px;
+    opacity: 0;
+  }
+  .demo-stage.playing .demo-product {
+    animation: productIn 0.9s ease forwards 0.2s, fadeOutStage 0.6s ease forwards 7.2s;
+  }
+  @keyframes productIn {
+    to { opacity: 1; transform: translateY(-50%) translateY(0) scale(1); }
+  }
+  @keyframes fadeOutStage {
+    to { opacity: 0.18; transform: translateY(-50%) translateY(0) scale(0.94); }
+  }
+  .product-label {
+    font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.14em;
+    color: var(--ink-4); margin-bottom: 10px; font-weight: 600;
+  }
+  .product-title {
+    font-family: 'Fraunces', serif; font-size: 19px; font-weight: 500;
+    color: var(--ink); margin-bottom: 6px; line-height: 1.25;
+  }
+  .product-subtitle {
+    font-size: 12.5px; color: var(--ink-3); line-height: 1.5;
+  }
+  .product-arrow {
+    position: absolute; right: -34px; top: 50%;
+    width: 26px; height: 2px;
+    background: var(--accent);
+    opacity: 0;
+  }
+  .product-arrow::after {
+    content: ''; position: absolute; right: 0; top: -4px;
+    width: 10px; height: 10px;
+    border-top: 2px solid var(--accent);
+    border-right: 2px solid var(--accent);
+    transform: rotate(45deg);
+  }
+  .demo-stage.playing .product-arrow {
+    animation: fadeInOnly 0.5s ease forwards 1.3s, fadeOutStage 0.6s ease forwards 7.2s;
+  }
+  @keyframes fadeInOnly { to { opacity: 1; } }
+
+  /* Persona cloud */
+  .persona-cloud {
+    position: absolute;
+    top: 0; left: 50%;
+    transform: translateX(-50%);
+    width: 340px; height: 100%;
+    pointer-events: none;
+  }
+  .persona {
+    position: absolute;
+    width: 62px; height: 62px;
+    border-radius: 50%;
+    background: var(--accent-bg);
+    border: 1.5px solid var(--accent);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 4px;
+    opacity: 0; transform: scale(0);
+    box-shadow: 0 3px 10px rgba(15, 42, 68, 0.08);
+  }
+  .persona b {
+    font-family: 'Fraunces', serif;
+    font-size: 18px; font-weight: 500;
+    color: var(--accent); line-height: 1;
+  }
+  .persona em {
+    font-family: 'Inter', sans-serif; font-style: normal;
+    font-size: 8.5px; color: var(--ink-2);
+    letter-spacing: 0.03em; margin-top: 3px; font-weight: 500;
+  }
+  .persona:nth-child(1)  { top: 8%;   left: 10%; }
+  .persona:nth-child(2)  { top: 2%;   left: 46%; }
+  .persona:nth-child(3)  { top: 18%;  left: 78%; }
+  .persona:nth-child(4)  { top: 32%;  left: 20%; }
+  .persona:nth-child(5)  { top: 38%;  left: 50%; }
+  .persona:nth-child(6)  { top: 42%;  left: 82%; }
+  .persona:nth-child(7)  { top: 62%;  left: 8%; }
+  .persona:nth-child(8)  { top: 68%;  left: 40%; }
+  .persona:nth-child(9)  { top: 72%;  left: 72%; }
+  .persona:nth-child(10) { top: 50%;  left: 30%; }
+  .demo-stage.playing .persona {
+    animation: personaIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards,
+               personaOut 0.6s ease forwards 7.2s;
+    animation-delay: calc(1.8s + var(--i) * 0.13s), 7.2s;
+  }
+  @keyframes personaIn {
+    to { opacity: 1; transform: scale(1); }
+  }
+  @keyframes personaOut {
+    to { opacity: 0.15; transform: scale(0.85); }
+  }
+  .persona-more {
+    position: absolute;
+    top: 93%; left: 50%;
+    transform: translateX(-50%) scale(0);
+    background: var(--accent); color: var(--bg);
+    font-family: 'Fraunces', serif; font-size: 13px; font-weight: 500;
+    padding: 7px 16px; border-radius: 20px;
+    opacity: 0;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+  }
+  .demo-stage.playing .persona-more {
+    animation: personaMoreIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards 3.5s,
+               personaMoreOut 0.6s ease forwards 7.2s;
+  }
+  @keyframes personaMoreIn {
+    to { opacity: 1; transform: translateX(-50%) scale(1); }
+  }
+  @keyframes personaMoreOut {
+    to { opacity: 0.15; transform: translateX(-50%) scale(0.88); }
+  }
+
+  /* Insight bubbles */
+  .insights {
+    position: absolute;
+    top: 0; right: 0;
+    width: 240px; height: 100%;
+    pointer-events: none;
+  }
+  .bubble {
+    position: absolute;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 9px 14px;
+    font-size: 12.5px; line-height: 1.4;
+    color: var(--ink);
+    box-shadow: 0 3px 10px rgba(15, 42, 68, 0.06);
+    opacity: 0; transform: translateX(-10px);
+    max-width: 200px;
+    font-weight: 500;
+  }
+  .bubble::before {
+    content: ''; position: absolute;
+    left: -7px; top: 14px;
+    width: 10px; height: 10px;
+    background: var(--bg);
+    border-left: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    transform: rotate(45deg);
+  }
+  .bubble.neg { color: var(--ink-2); }
+  .bubble:nth-child(1) { top: 3%;   right: 8px; }
+  .bubble:nth-child(2) { top: 22%;  right: 32px; }
+  .bubble:nth-child(3) { top: 41%;  right: 6px; }
+  .bubble:nth-child(4) { top: 60%;  right: 40px; }
+  .bubble:nth-child(5) { top: 78%;  right: 10px; }
+  .bubble:nth-child(6) { top: 92%;  right: 32px; }
+  .demo-stage.playing .bubble {
+    animation: bubbleIn 0.55s cubic-bezier(0.2, 0.8, 0.3, 1.1) forwards,
+               bubbleOut 0.5s ease forwards 7.2s;
+    animation-delay: calc(4s + var(--i) * 0.3s), 7.2s;
+  }
+  @keyframes bubbleIn {
+    to { opacity: 1; transform: translateX(0); }
+  }
+  @keyframes bubbleOut {
+    to { opacity: 0; transform: translateX(8px) scale(0.96); }
+  }
+
+  /* Report card */
+  .demo-report {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%) scale(0.9);
+    width: 400px;
+    background: var(--bg);
+    border: 2px solid var(--accent);
+    border-radius: 14px;
+    padding: 26px 28px 22px;
+    opacity: 0;
+    box-shadow: 0 20px 50px rgba(15, 42, 68, 0.18);
+  }
+  .demo-stage.playing .demo-report {
+    animation: reportIn 0.9s cubic-bezier(0.2, 0.8, 0.3, 1.1) forwards 7.6s;
+  }
+  @keyframes reportIn {
+    to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  }
+  .report-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding-bottom: 14px; margin-bottom: 18px;
+    border-bottom: 1px solid var(--border-soft);
+  }
+  .report-kicker {
+    font-family: 'Fraunces', serif; font-size: 16px; font-weight: 500;
+    color: var(--ink);
+  }
+  .report-stamp {
+    font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--accent); font-weight: 600;
+    background: var(--accent-bg);
+    padding: 4px 9px; border-radius: 4px;
+  }
+  .report-stats {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px;
+    margin-bottom: 16px;
+  }
+  .stat { text-align: center; }
+  .stat-value {
+    display: block;
+    font-family: 'Fraunces', serif;
+    font-size: 26px; font-weight: 500;
+    color: var(--accent); line-height: 1;
+    margin-bottom: 5px;
+  }
+  .stat-label {
+    display: block;
+    font-size: 10.5px; letter-spacing: 0.08em;
+    color: var(--ink-3); text-transform: uppercase;
+  }
+  .report-footer {
+    font-size: 11.5px; color: var(--ink-3);
+    text-align: center; padding-top: 12px;
+    border-top: 1px dashed var(--border);
+    letter-spacing: 0.04em;
+  }
+
+  /* Stage caption */
+  .stage-caption {
+    position: relative;
+    text-align: center;
+    margin-top: 24px;
+    padding-top: 22px;
+    border-top: 1px solid var(--border-soft);
+    min-height: 54px;
+  }
+  .caption-line {
+    position: absolute;
+    left: 0; right: 0;
+    font-size: 15px; color: var(--ink-2);
+    letter-spacing: 0.02em;
+    opacity: 0;
+    transform: translateY(6px);
+    transition: opacity .4s ease, transform .4s ease;
+    font-weight: 500;
+  }
+  .caption-line.active {
+    opacity: 1; transform: translateY(0);
+  }
+  .caption-num {
+    font-family: 'Fraunces', serif;
+    color: var(--accent); font-weight: 600;
+    margin-right: 6px;
+  }
+
+  /* Replay button */
+  .replay-btn {
+    position: absolute;
+    right: 20px; bottom: 20px;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--ink-2);
+    font-family: 'Inter', 'Noto Sans TC', sans-serif;
+    font-size: 12px; font-weight: 500;
+    padding: 7px 14px;
+    border-radius: 20px;
+    cursor: pointer;
+    letter-spacing: 0.04em;
+    transition: border-color .2s, color .2s, background .2s;
+  }
+  .replay-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--bg);
+  }
+
+  /* Mobile adjustments */
+  @media (max-width: 780px) {
+    .stage-inner { height: 560px; }
+    .demo-product { top: 10px; left: 50%; transform: translateX(-50%) scale(0.96); width: min(260px, 90%); }
+    .demo-stage.playing .demo-product {
+      animation: productInMobile 0.9s ease forwards 0.2s, fadeOutStageMobile 0.6s ease forwards 7.2s;
+    }
+    @keyframes productInMobile {
+      to { opacity: 1; transform: translateX(-50%) scale(1); }
+    }
+    @keyframes fadeOutStageMobile {
+      to { opacity: 0.18; transform: translateX(-50%) scale(0.92); }
+    }
+    .product-arrow { display: none; }
+    .persona-cloud { top: 130px; left: 50%; width: 280px; height: 180px; }
+    .persona { width: 52px; height: 52px; }
+    .persona b { font-size: 15px; }
+    .persona em { font-size: 8px; }
+    .insights { top: 340px; right: 50%; transform: translateX(50%); width: 260px; height: 200px; }
+    .bubble { max-width: 180px; font-size: 11.5px; padding: 7px 11px; }
+    .bubble:nth-child(4), .bubble:nth-child(5), .bubble:nth-child(6) { display: none; }
+    .demo-report { width: min(320px, 92%); padding: 20px 22px; }
+    .stat-value { font-size: 22px; }
+  }
+
+  /* Reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    .demo-stage.playing .demo-product,
+    .demo-stage.playing .persona,
+    .demo-stage.playing .persona-more,
+    .demo-stage.playing .bubble,
+    .demo-stage.playing .demo-report,
+    .demo-stage.playing .product-arrow {
+      animation: none !important;
+      opacity: 1 !important;
+      transform: none !important;
+    }
+    .demo-report { transform: translate(-50%, -50%) !important; }
+    .persona-more { transform: translateX(-50%) !important; }
+  }
+
+  @media (max-width: 720px) {
+    nav.top .links a:not(.btn-primary) { display: none; }
+    .hero { padding: 80px 0 70px; }
+    section.block { padding: 80px 0; }
+    .contact { padding: 80px 0; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="top">
+  <div class="inner">
+    <a href="#top" class="logo">
+      <span class="logo-mark">P</span>
+      <span>Preco Lab</span>
+    </a>
+    <div class="links">
+      <a href="#engines">代理</a>
+      <a href="#demo">演示</a>
+      <a href="#services">服務</a>
+      <a href="#why">為什麼</a>
+      <a href="#cases">案例</a>
+      <a href="#contact" class="btn-primary">聯絡</a>
+    </div>
+  </div>
+</nav>
+
+<!-- Hero -->
+<header id="top" class="hero">
+  <div class="container">
+    <div class="eyebrow">AI Studio · 市場模擬導向</div>
+    <h1>
+      Predict<br/>
+      before you <em>launch</em>.
+    </h1>
+    <p class="lede">
+      Preco Lab 用 AI 群體模擬屬於你的客群，幫你在 Landing Page、品牌、文案上線之前，先看見市場反應。
+    </p>
+    <div class="cta-row">
+      <a href="#contact" class="btn-primary">聯絡諮詢</a>
+      <a href="#services" class="btn-secondary">了解服務</a>
+    </div>
+  </div>
+</header>
+
+<!-- Engines -->
+<section id="engines" class="block">
+  <div class="container">
+    <div class="section-eyebrow fade-up">三個代理</div>
+    <h2 class="section-h2 serif fade-up">不是一個人在猜測，<br/>是一套會預測、會執行、會模擬的系統。</h2>
+    <p class="section-intro fade-up">多數接案只賣開發時間。我們把程式開發、24/7 雲端自動化、AI 群體模擬三個代理串成一個交付流程，做出傳統接案者做不到的事。</p>
+
+    <div class="engines">
+      <div class="engine fade-up">
+        <div class="num">01</div>
+        <h3>Neo</h3>
+        <div class="role">程式開發代理</div>
+        <p>從 0 到 1 的交付主力。Landing Page、爬蟲、自動化腳本、API 串接、商務文件。</p>
+        <ul>
+          <li>響應式網頁與 Landing Page</li>
+          <li>資料爬蟲與自動化</li>
+          <li>API 串接與系統整合</li>
+          <li>提案、合約、報告文件</li>
+        </ul>
+      </div>
+
+      <div class="engine fade-up">
+        <div class="num">02</div>
+        <h3>Christy</h3>
+        <div class="role">24/7 雲端執行代理</div>
+        <p>常駐雲端排程執行。客戶不用電腦開著，任務照樣跑、報告準時送。</p>
+        <ul>
+          <li>競品、新聞、社群監測</li>
+          <li>每日 LINE / Email 推送</li>
+          <li>訂閱制服務後台</li>
+          <li>表單自動化流程</li>
+        </ul>
+      </div>
+
+      <div class="engine fade-up">
+        <div class="num">03</div>
+        <h3>Iris</h3>
+        <div class="role">AI 群體智能模擬</div>
+        <p>生成 50–100 個 AI persona，模擬真實客群對產品的反應。市場測試不再燒廣告費。</p>
+        <ul>
+          <li>品牌命名、Slogan 測試</li>
+          <li>Landing Page A/B 模擬</li>
+          <li>商品文案購買意圖分析</li>
+          <li>客製 TA persona 設計</li>
+        </ul>
+      </div>
+    </div>
+
+    <p class="disclaimer fade-up">
+      Iris 輸出為 AI 群體智能模擬洞察，非真人調研。建議作為早期驗證工具，重大決策仍需搭配真實市場數據交叉參考。
+    </p>
+  </div>
+</section>
+
+<!-- Iris Demo -->
+<section id="demo" class="block">
+  <div class="container">
+    <div class="section-eyebrow fade-up">Iris 怎麼運作</div>
+    <h2 class="section-h2 serif fade-up">看一次你就懂。<br/><em>虛擬客群，同時看你的產品。</em></h2>
+    <p class="section-intro fade-up">Neo 和 Christy 做什麼很直觀——搭網頁、跑排程。但 Iris 是我們最獨特、也最多人好奇的服務。與其用說的，不如直接看它的運作原理。</p>
+
+    <div class="demo-stage fade-up">
+      <div class="stage-inner">
+        <!-- Stage 1: Product -->
+        <div class="demo-product">
+          <div class="product-label">你的產品</div>
+          <div class="product-title">Press-On Nails 訂閱盒</div>
+          <div class="product-subtitle">月費 NT$590 · 每月 8 組花色</div>
+          <span class="product-arrow" aria-hidden="true"></span>
+        </div>
+
+        <!-- Stage 2: Personas -->
+        <div class="persona-cloud">
+          <div class="persona" style="--i:0"><b>28</b><em>行銷</em></div>
+          <div class="persona" style="--i:1"><b>34</b><em>律師</em></div>
+          <div class="persona" style="--i:2"><b>22</b><em>學生</em></div>
+          <div class="persona" style="--i:3"><b>42</b><em>主婦</em></div>
+          <div class="persona" style="--i:4"><b>29</b><em>設計</em></div>
+          <div class="persona" style="--i:5"><b>38</b><em>護理</em></div>
+          <div class="persona" style="--i:6"><b>25</b><em>工程</em></div>
+          <div class="persona" style="--i:7"><b>31</b><em>老師</em></div>
+          <div class="persona" style="--i:8"><b>27</b><em>編輯</em></div>
+          <div class="persona" style="--i:9"><b>33</b><em>業務</em></div>
+          <div class="persona-more">+ 40 個 persona</div>
+        </div>
+
+        <!-- Stage 3: Insight Bubbles -->
+        <div class="insights">
+          <div class="bubble" style="--i:0">包裝很質感，25 歲會想買</div>
+          <div class="bubble neg" style="--i:1">價格再低 $50 更吸引人</div>
+          <div class="bubble" style="--i:2">IG 會想發開箱文</div>
+          <div class="bubble neg" style="--i:3">名字太難記住</div>
+          <div class="bubble" style="--i:4">花色選擇我喜歡</div>
+          <div class="bubble neg" style="--i:5">比日本牌貴 30%</div>
+        </div>
+
+        <!-- Stage 5: Report -->
+        <div class="demo-report">
+          <div class="report-header">
+            <span class="report-kicker">Iris 分析報告</span>
+            <span class="report-stamp">50 personas</span>
+          </div>
+          <div class="report-stats">
+            <div class="stat"><span class="stat-value">7.8</span><span class="stat-label">記憶度</span></div>
+            <div class="stat"><span class="stat-value">6.4</span><span class="stat-label">購買意圖</span></div>
+            <div class="stat"><span class="stat-value">Top 3</span><span class="stat-label">命名推薦</span></div>
+          </div>
+          <div class="report-footer">24 小時內交付 · PDF 完整報告</div>
+        </div>
+      </div>
+
+      <!-- Caption -->
+      <div class="stage-caption">
+        <div class="caption-line active" data-step="1"><span class="caption-num">01</span>把你的產品交給 Iris</div>
+        <div class="caption-line" data-step="2"><span class="caption-num">02</span>召喚 50 位 AI 客群</div>
+        <div class="caption-line" data-step="3"><span class="caption-num">03</span>每個人獨立給出真實反應</div>
+        <div class="caption-line" data-step="4"><span class="caption-num">04</span>彙整成可行動洞察</div>
+        <div class="caption-line" data-step="5"><span class="caption-num">05</span>24 小時內交付完整報告</div>
+      </div>
+
+      <button class="replay-btn" type="button" aria-label="重播演示">↻ 重播</button>
+    </div>
+
+    <p class="disclaimer fade-up">
+      動畫為示意用途，實際 persona 群組依你的目標客群客製設計。範例中的「Press-On Nails 訂閱盒」為假設商品，僅用於演示 Iris 的工作流程。
+    </p>
+  </div>
+</section>
+
+<!-- Services -->
+<section id="services" class="block alt">
+  <div class="container">
+    <div class="section-eyebrow fade-up">服務項目</div>
+    <h2 class="section-h2 serif fade-up">四條服務線，打不同客群。</h2>
+    <p class="section-intro fade-up">從一次性交付到訂閱制月費，從國內服務到國外。選擇最適合你的服務。</p>
+
+    <div class="services">
+
+      <div class="service featured fade-up">
+        <div class="service-tag">主打套餐</div>
+        <h3 class="serif">Landing Page + AI 群體模擬</h3>
+        <div class="price">NT$8,000 <small>起 · 一次性</small></div>
+        <p>我們不只會做 Landing Page。完整 LP + 兩版 A/B + Iris 模擬 50 persona 評分 + 洞察報告 + 優化建議。</p>
+        <ul>
+          <li>響應式 LP 原始碼交付</li>
+          <li>兩版 A/B 測試設計</li>
+          <li>50 AI persona 模擬 PDF 報告</li>
+          <li>優化建議與迭代方案</li>
+        </ul>
+      </div>
+
+      <div class="service outline-tag fade-up">
+        <div class="service-tag">藍海品類</div>
+        <h3 class="serif">市場洞察報告</h3>
+        <div class="price">NT$3,000 <small>起 · 一次性</small></div>
+        <p>品牌命名、Slogan、商品定位、文案方向的 AI 群體驗證。傳統市調要 NT$30,000+，我們做 1/10 價。</p>
+        <ul>
+          <li>20–50 候選項 × 50 persona 評分</li>
+          <li>記憶度 / 情感 / 購買意圖分析</li>
+          <li>Top 3 推薦與理由</li>
+          <li>客製 TA persona 設計</li>
+        </ul>
+      </div>
+
+      <div class="service outline-tag fade-up">
+        <div class="service-tag">訂閱制</div>
+        <h3 class="serif">24/7 自動化監測</h3>
+        <div class="price">NT$500 <small>/ 月起</small></div>
+        <p>競品價格、社群聲譽、新聞關鍵字、熱門討論——每天自動抓取，推送到你的 LINE。不用自己電腦開著。</p>
+        <ul>
+          <li>單品監測 $500/月 起</li>
+          <li>社群聲譽 5 關鍵字 $1,500/月</li>
+          <li>新聞摘要 + AI 分析 $1,000/月</li>
+          <li>客製報告 $3,000/月</li>
+        </ul>
+      </div>
+
+      <div class="service outline-tag fade-up">
+        <div class="service-tag">進階</div>
+        <h3 class="serif">爬蟲 + AI 趨勢分析</h3>
+        <div class="price">NT$5,000 <small>起 · 一次性</small></div>
+        <p>純爬蟲是 commodity。我們提供的是「資料抓取 + 群體模擬趨勢解讀」，告訴你資料背後的客群反應邏輯。</p>
+        <ul>
+          <li>自訂目標網站資料抓取</li>
+          <li>清洗與結構化輸出</li>
+          <li>Iris 趨勢解讀</li>
+          <li>可升級為訂閱監測</li>
+        </ul>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- Why Preco -->
+<section id="why" class="block">
+  <div class="container">
+    <div class="section-eyebrow fade-up">差異</div>
+    <h2 class="section-h2 serif fade-up">和傳統接案，差別在哪？</h2>
+    <p class="section-intro fade-up">我們不比較誰開發得快、誰報價低。我們比較的是「交付的邏輯」。</p>
+
+    <div class="why-grid">
+      <div class="why-col vs fade-up">
+        <h3>傳統接案</h3>
+        <ul>
+          <li>一個人孤軍奮戰</li>
+          <li>交付即結束</li>
+          <li>憑經驗直覺判斷會不會賣</li>
+          <li>每天得花心力去追蹤</li>
+          <li>市場測試得先燒廣告費</li>
+        </ul>
+      </div>
+      <div class="why-col us fade-up">
+        <h3>Preco Lab</h3>
+        <ul>
+          <li>三代理協作：開發 × 執行 × 模擬</li>
+          <li>一次性交付 + 訂閱制續航</li>
+          <li>AI 群體驗證，不靠直覺</li>
+          <li>Christy 雲端 24/7 幫你追蹤</li>
+          <li>投放前先模擬，省 80% 測試成本</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Cases -->
+<section id="cases" class="block alt">
+  <div class="container">
+    <div class="section-eyebrow fade-up">進行中的案例</div>
+    <h2 class="section-h2 serif fade-up">剛起步，誠實告訴你進度。</h2>
+    <p class="section-intro fade-up">Preco Lab 不假裝自己做過 500 個成功案例。以下是我們正在交付或剛完成的實作。</p>
+
+    <div class="cases">
+      <div class="case fade-up">
+        <div class="case-meta">
+          <span>Iris</span>
+          <span class="case-status">即將上線</span>
+        </div>
+        <h3 class="serif">Press-On Nails 訂閱盒品牌命名</h3>
+        <p>20 個候選品牌名 × 50 個台灣 25–35 歲女性 persona，測試記憶度、情感聯想、購買意圖。</p>
+        <div class="detail">交付：PDF 洞察報告</div>
+      </div>
+
+      <div class="case fade-up">
+        <div class="case-meta">
+          <span>Christy</span>
+          <span class="case-status">建置中</span>
+        </div>
+        <h3 class="serif">蝦皮 Press-On Nails 競品監測</h3>
+        <p>24/7 自動抓取熱銷商品價格、上新、評價變化，每日 LINE 推送彙整。</p>
+        <div class="detail">交付：監測儀表板 + 訂閱方案</div>
+      </div>
+
+      <div class="case fade-up">
+        <div class="case-meta">
+          <span>Neo</span>
+          <span class="case-status">你正在看</span>
+        </div>
+        <h3 class="serif">Preco Lab 官方網站</h3>
+        <p>單日完成的響應式品牌頁。純 HTML / CSS / 原生 JS，零依賴，GitHub Pages 可直接部署。</p>
+        <div class="detail">交付：本頁面</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Contact -->
+<section id="contact" class="contact">
+  <div class="container-narrow">
+    <div class="section-eyebrow fade-up">聯絡</div>
+    <h2 class="serif fade-up">
+      先聊聊你的問題，<br/>
+      我們<em>判斷 AI 能不能幫到你</em>。
+    </h2>
+    <p class="lede fade-up">30 分鐘線上諮詢免費。若三引擎不適合你的需求，我們會直接告訴你，不推銷。</p>
+    <div class="contact-cta fade-up">
+      <a href="mailto:a0958710037@gmail.com" class="btn-primary">Email 聯絡 →</a>
+      <a href="#services" class="btn-secondary">先看服務項目</a>
+    </div>
+    <div class="contact-info fade-up">
+      <div>
+        <div class="label">Email</div>
+        <a href="mailto:a0958710037@gmail.com" class="value">a0958710037@gmail.com</a>
+      </div>
+      <div>
+        <div class="label">平台</div>
+        <div class="value">Fiverr · PRO360<br/><span style="color:var(--ink-4);font-size:13px;">（上架中）</span></div>
+      </div>
+      <div>
+        <div class="label">回覆時間</div>
+        <div class="value">24 小時內 · 工作日</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="inner">
+    <div class="logo">
+      <span class="logo-mark">P</span>
+      <span>Preco Lab</span>
+    </div>
+    <div>© 2026 Preco Lab · All rights reserved.</div>
+  </div>
+</footer>
+
+<script>
+  // Fade-up on scroll
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+        observer.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.15, rootMargin: '0px 0px -50px 0px' });
+
+  document.querySelectorAll('.fade-up').forEach(el => observer.observe(el));
+
+  // Iris Demo animation control
+  const demoSection = document.getElementById('demo');
+  if (demoSection) {
+    const stage = demoSection.querySelector('.demo-stage');
+    const captionLines = demoSection.querySelectorAll('.caption-line');
+    const replayBtn = demoSection.querySelector('.replay-btn');
+    const captionTimeline = [
+      { at: 0,    step: '1' },
+      { at: 2000, step: '2' },
+      { at: 4000, step: '3' },
+      { at: 6500, step: '4' },
+      { at: 8000, step: '5' },
+    ];
+    let captionTimers = [];
+
+    function setActiveCaption(step) {
+      captionLines.forEach(c => c.classList.toggle('active', c.dataset.step === step));
+    }
+
+    function playDemo() {
+      captionTimers.forEach(t => clearTimeout(t));
+      captionTimers = [];
+      stage.classList.remove('playing');
+      void stage.offsetWidth; // force reflow so animations restart
+      stage.classList.add('playing');
+      captionTimeline.forEach(({ at, step }) => {
+        captionTimers.push(setTimeout(() => setActiveCaption(step), at));
+      });
+    }
+
+    const demoObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          playDemo();
+          demoObserver.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.3 });
+    demoObserver.observe(stage);
+
+    replayBtn.addEventListener('click', playDemo);
+  }
+</script>
+
+</body>
+</html>
