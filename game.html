@@ -374,115 +374,199 @@ const sfx={
 function mkCanvas(w,h){ const c=document.createElement('canvas'); c.width=w; c.height=h; return c; }
 function makeEntityFrame(tilt){
   const c=mkCanvas(128,256), g=c.getContext('2d'), cx=64;
-  // 染污的病袍：下擺破碎、漸隱入黑暗
-  let gr=g.createLinearGradient(0,60,0,256);
-  gr.addColorStop(0,'#c8c2b2'); gr.addColorStop(.5,'#8e887a');
-  gr.addColorStop(.85,'#4a463e'); gr.addColorStop(1,'rgba(12,12,14,0)');
+  g.lineCap='round';
+  // 細瘦灰白的腿（兩影格交換前後腳）
+  g.strokeStyle='#9d978b';
+  g.lineWidth=7;
+  g.beginPath(); g.moveTo(cx-8,144); g.lineTo(cx-9-3*tilt,194); g.lineTo(cx-10-5*tilt,238); g.stroke();
+  g.lineWidth=6.5;
+  g.beginPath(); g.moveTo(cx+8,144); g.lineTo(cx+9+3*tilt,192); g.lineTo(cx+10+5*tilt,236); g.stroke();
+  g.lineWidth=4;
+  g.beginPath(); g.moveTo(cx-10-5*tilt,238); g.lineTo(cx-16-5*tilt,242); g.stroke();
+  g.beginPath(); g.moveTo(cx+10+5*tilt,236); g.lineTo(cx+4+5*tilt,241); g.stroke();
+  // 消瘦的軀幹：腰部內凹
+  let gr=g.createLinearGradient(0,62,0,150);
+  gr.addColorStop(0,'#b6b0a2'); gr.addColorStop(1,'#7d7769');
   g.fillStyle=gr;
   g.beginPath();
-  g.moveTo(cx-20,78);
-  g.quadraticCurveTo(cx-34,150,cx-30,236);
-  for(let x=cx-30;x<=cx+30;x+=6) g.lineTo(x,236+((x*7)%9)-4);
-  g.quadraticCurveTo(cx+34,150,cx+20,78);
+  g.moveTo(cx-15,70);
+  g.quadraticCurveTo(cx-16,92,cx-9,112);
+  g.quadraticCurveTo(cx-13,128,cx-13,142);
+  g.lineTo(cx+13,142);
+  g.quadraticCurveTo(cx+13,128,cx+9,112);
+  g.quadraticCurveTo(cx+16,92,cx+15,70);
   g.closePath(); g.fill();
-  // 污漬垂痕與下擺暗色血漬
-  g.strokeStyle='rgba(40,34,30,.5)'; g.lineWidth=2;
-  for(let i=0;i<8;i++){ const sx=cx-24+i*6.5, sy=95+(i*13)%30;
-    g.beginPath(); g.moveTo(sx,sy); g.lineTo(sx+rand(-3,3),sy+rand(25,80)); g.stroke(); }
-  g.fillStyle='rgba(60,18,14,.5)';
-  g.beginPath(); g.ellipse(cx+10*tilt,222,15,22,0,0,7); g.fill();
-  // 細長蒼白的手臂與手指
-  g.strokeStyle='#a9a294'; g.lineWidth=6; g.lineCap='round';
-  g.beginPath(); g.moveTo(cx-19,84); g.quadraticCurveTo(cx-32,130,cx-28,176); g.stroke();
-  g.beginPath(); g.moveTo(cx+19,84); g.quadraticCurveTo(cx+32,128,cx+27,170+6*tilt); g.stroke();
-  g.lineWidth=1.8; g.strokeStyle='#b7b0a0';
-  for(let f=0;f<4;f++){
-    g.beginPath(); g.moveTo(cx-28,176); g.lineTo(cx-31+f*2.2,190+(f*5)%4); g.stroke();
-    g.beginPath(); g.moveTo(cx+27,170+6*tilt); g.lineTo(cx+30-f*2.2,185+6*tilt+(f*3)%4); g.stroke();
+  // 肋骨陰影
+  g.strokeStyle='rgba(70,62,58,.4)'; g.lineWidth=1.5;
+  for(let r=0;r<3;r++){
+    g.beginPath(); g.moveTo(cx-9,103+r*6);
+    g.quadraticCurveTo(cx,107+r*6,cx+9,103+r*6); g.stroke();
   }
-  // 不自然歪斜的頭
-  g.save(); g.translate(cx,44); g.rotate(.16*tilt);
-  gr=g.createRadialGradient(0,-6,4,0,0,26);
+  // 破爛的灰色短上衣
+  g.fillStyle='#8e887c';
+  g.beginPath(); g.moveTo(cx-16,67); g.lineTo(cx+16,67); g.lineTo(cx+14,94);
+  for(let x=cx+14;x>=cx-14;x-=5) g.lineTo(x,94+((x*5)%7)-3);
+  g.closePath(); g.fill();
+  // 下身襤褸
+  g.fillStyle='#5e594f';
+  g.beginPath(); g.moveTo(cx-12,128); g.lineTo(cx+12,128); g.lineTo(cx+12,142);
+  for(let x=cx+12;x>=cx-12;x-=4) g.lineTo(x,142+((x*3)%5)-2);
+  g.closePath(); g.fill();
+  // 細長垂掛的手臂
+  g.strokeStyle='#a9a294'; g.lineWidth=5;
+  g.beginPath(); g.moveTo(cx-14,74); g.quadraticCurveTo(cx-26,110,cx-24,158+4*tilt); g.stroke();
+  g.beginPath(); g.moveTo(cx+14,74); g.quadraticCurveTo(cx+26,108,cx+23,154-4*tilt); g.stroke();
+  // 刀刃般的長爪（暗紅）
+  for(const [hx,hy] of [[cx-24,158+4*tilt],[cx+23,154-4*tilt]]){
+    g.strokeStyle='#b7b0a0'; g.lineWidth=2;
+    for(let f=0;f<4;f++){ g.beginPath(); g.moveTo(hx,hy); g.lineTo(hx-5+f*3.2,hy+7); g.stroke(); }
+    g.strokeStyle='#5a1d16'; g.lineWidth=2.2;
+    for(let f=0;f<4;f++){
+      g.beginPath(); g.moveTo(hx-5+f*3.2,hy+7);
+      g.lineTo(hx-7+f*4+(f%2),hy+7+16+(f*5)%8); g.stroke();
+    }
+  }
+  // 歪斜的頭：蒼白的臉上掛著咧笑與一隻大圓眼
+  g.save(); g.translate(cx,46); g.rotate(.14*tilt);
+  gr=g.createRadialGradient(0,-6,4,0,0,25);
   gr.addColorStop(0,'#d9d2c0'); gr.addColorStop(1,'#857f72');
-  g.fillStyle=gr; g.beginPath(); g.ellipse(0,0,17,23,0,0,7); g.fill();
+  g.fillStyle=gr; g.beginPath(); g.ellipse(0,0,15,20,0,0,7); g.fill();
   g.fillStyle='rgba(96,86,92,.25)';
-  for(let i=0;i<26;i++) g.fillRect(rand(-14,14)|0,rand(-18,20)|0,2,2);
-  g.fillStyle='#171015';
-  g.beginPath(); g.ellipse(2*tilt,13,3.4,5.2,0,0,7); g.fill();
-  g.fillStyle='rgba(8,5,8,.95)';
-  g.beginPath(); g.ellipse(-6*tilt,-2,4.6,5.8,0,0,7); g.fill();
-  g.fillStyle='#cfc8b6'; g.fillRect(-6*tilt-1,-3,2,2);
+  for(let i=0;i<22;i++) g.fillRect(rand(-12,12)|0,rand(-16,18)|0,2,2);
+  // 咧笑（露出小尖牙）
+  g.fillStyle='#140a0c';
+  g.beginPath(); g.moveTo(-9,8);
+  g.quadraticCurveTo(0,15,9,7);
+  g.quadraticCurveTo(0,22,-9,8);
+  g.fill();
+  g.fillStyle='#cfc6b2';
+  for(let i=0;i<5;i++){
+    const tx=-7+i*3.5;
+    g.beginPath(); g.moveTo(tx-1.4,10); g.lineTo(tx+1.4,10); g.lineTo(tx,14.5); g.closePath(); g.fill();
+  }
+  // 一隻瞪大的圓眼：黑洞＋亮瞳點
+  g.fillStyle='#0a0608'; g.beginPath(); g.arc(-6*tilt,-4,6,0,7); g.fill();
+  g.strokeStyle='#332c28'; g.lineWidth=1.5;
+  g.beginPath(); g.arc(-6*tilt,-4,3.6,0,7); g.stroke();
+  g.fillStyle='#e6e0d0'; g.fillRect(-6*tilt,-5.5,2,2);
+  // 細挑的眉
+  g.strokeStyle='rgba(20,14,14,.8)'; g.lineWidth=1.6;
+  g.beginPath(); g.moveTo(-6*tilt-6,-12); g.quadraticCurveTo(-6*tilt,-16,-6*tilt+6,-11); g.stroke();
   g.restore();
-  // 長黑髮：垂落遮住大半張臉，獨留一隻眼的縫隙
+  // 濕黑長髮：垂到胸口，避開那隻眼睛
   g.fillStyle='#0a0709';
-  g.beginPath(); g.ellipse(cx+2*tilt,30,19,17,.1*tilt,Math.PI*.95,Math.PI*2.05); g.fill();
-  g.strokeStyle='rgba(8,6,9,.92)'; g.lineCap='round';
+  g.beginPath(); g.ellipse(cx+2*tilt,32,18,16,.1*tilt,Math.PI*.95,Math.PI*2.05); g.fill();
+  g.strokeStyle='rgba(8,6,9,.92)';
   const eyeX=cx-6*tilt;
-  for(let i=0;i<44;i++){
-    const a=-1.45+i*.07;
-    const hx=cx+Math.cos(a)*16+rand(-2,2), hy=30+Math.sin(a)*9;
-    if(Math.abs(hx-eyeX)<5&&Math.cos(a)*tilt<0) continue;
-    g.lineWidth=rand(2,4.5);
+  for(let i=0;i<40;i++){
+    const a=-1.45+i*.077;
+    const hx=cx+Math.cos(a)*15+rand(-2,2), hy=32+Math.sin(a)*8;
+    if(Math.abs(hx-eyeX)<6&&Math.cos(a)*tilt<0) continue;
+    g.lineWidth=rand(2,4);
     g.beginPath(); g.moveTo(hx,hy);
-    g.bezierCurveTo(hx+rand(-8,8),hy+40+rand(0,20),hx+rand(-12,12),hy+80+rand(0,30),
-      hx+rand(-14,14)+4*tilt,hy+rand(95,150));
+    g.bezierCurveTo(hx+rand(-7,7),hy+34+rand(0,16),hx+rand(-10,10),hy+62+rand(0,22),
+      hx+rand(-12,12)+4*tilt,hy+rand(72,118));
     g.stroke();
   }
   // 全身髒污顆粒
   g.fillStyle='rgba(20,16,16,.2)';
-  for(let i=0;i<160;i++) g.fillRect(rand(28,100)|0,rand(20,230)|0,1,rand(1,3)|0);
+  for(let i=0;i<150;i++) g.fillRect(rand(30,98)|0,rand(20,235)|0,1,rand(1,3)|0);
   return c;
 }
 function makeFaceSprite(){
   const c=mkCanvas(384,384), g=c.getContext('2d');
-  // 蒼白浮腫的臉
-  let gr=g.createRadialGradient(192,180,40,192,200,220);
-  gr.addColorStop(0,'#e3dbc6'); gr.addColorStop(.62,'#9a9183'); gr.addColorStop(1,'#0e0c0a');
-  g.fillStyle=gr; g.beginPath(); g.ellipse(192,200,132,172,0,0,7); g.fill();
-  // 屍斑般的皮膚紋理
-  g.fillStyle='rgba(110,95,100,.18)';
-  for(let i=0;i<700;i++) g.fillRect(rand(70,314)|0,rand(60,360)|0,rand(1,4)|0,rand(1,4)|0);
-  // 暗紅血管
-  g.strokeStyle='rgba(96,28,30,.5)'; g.lineWidth=1.6;
-  for(let i=0;i<22;i++){ let x=rand(80,300), y=rand(80,330);
-    g.beginPath(); g.moveTo(x,y);
-    for(let k=0;k<4;k++){ x+=rand(-22,22); y+=rand(8,26); g.lineTo(x,y); }
-    g.stroke(); }
-  // 深陷的眼窩：黑洞深處一點慘白瞳孔，位置不對稱
-  for(const [ex,ey,rx,ry,px,py] of [[132,168,33,42,4,6],[252,162,30,46,-3,10]]){
-    gr=g.createRadialGradient(ex,ey,4,ex,ey,rx+18);
-    gr.addColorStop(0,'#000'); gr.addColorStop(.7,'rgba(30,16,16,.95)'); gr.addColorStop(1,'rgba(60,40,40,0)');
-    g.fillStyle=gr; g.beginPath(); g.ellipse(ex,ey,rx+16,ry+14,0,0,7); g.fill();
-    g.fillStyle='#000'; g.beginPath(); g.ellipse(ex,ey,rx,ry,0,0,7); g.fill();
-    g.fillStyle='#d8d2c2'; g.fillRect(ex+px,ey+py,4,5);
+  const qb=(p0,p1,p2,t)=>{ const u=1-t; return u*u*p0+2*u*t*p1+t*t*p2; };
+  // 蒼白的長臉
+  let gr=g.createRadialGradient(192,190,40,192,205,220);
+  gr.addColorStop(0,'#dcd6c8'); gr.addColorStop(.6,'#a39b8f'); gr.addColorStop(1,'#0c0a09');
+  g.fillStyle=gr; g.beginPath(); g.ellipse(192,205,120,170,0,0,7); g.fill();
+  // 屍斑紋理
+  g.fillStyle='rgba(105,92,96,.16)';
+  for(let i=0;i<650;i++) g.fillRect(rand(80,304)|0,rand(60,368)|0,rand(1,4)|0,rand(1,4)|0);
+  // 顴骨凹陷
+  g.fillStyle='rgba(55,46,44,.3)';
+  g.beginPath(); g.ellipse(126,242,26,16,.5,0,7); g.fill();
+  g.beginPath(); g.ellipse(258,240,26,16,-.5,0,7); g.fill();
+  // 細挑高眉
+  g.strokeStyle='rgba(22,15,15,.85)'; g.lineWidth=5; g.lineCap='round';
+  g.beginPath(); g.moveTo(96,122); g.quadraticCurveTo(136,100,176,116); g.stroke();
+  g.beginPath(); g.moveTo(208,114); g.quadraticCurveTo(248,98,288,120); g.stroke();
+  // 巨大的同心圓瞪眼
+  for(const [ex,ey] of [[138,172],[246,168]]){
+    gr=g.createRadialGradient(ex,ey,30,ex,ey,58);
+    gr.addColorStop(0,'rgba(20,10,10,.9)'); gr.addColorStop(1,'rgba(60,44,40,0)');
+    g.fillStyle=gr; g.beginPath(); g.arc(ex,ey,58,0,7); g.fill();
+    g.fillStyle='#000'; g.beginPath(); g.arc(ex,ey,38,0,7); g.fill();
+    g.strokeStyle='#43392f'; g.lineWidth=5; g.beginPath(); g.arc(ex,ey,25,0,7); g.stroke();
+    g.strokeStyle='#1c1512'; g.lineWidth=3; g.beginPath(); g.arc(ex,ey,16,0,7); g.stroke();
+    g.fillStyle='#ece6d6'; g.beginPath(); g.arc(ex+4,ey-5,5,0,7); g.fill();
+    g.fillStyle='rgba(236,230,214,.35)'; g.beginPath(); g.arc(ex-6,ey+7,2.5,0,7); g.fill();
+    // 下緣垂落的黑色淚痕睫毛
+    g.strokeStyle='rgba(12,8,10,.82)';
+    for(let i=0;i<7;i++){
+      const sx2=ex-30+i*10, sy2=ey+34+rand(0,6);
+      g.lineWidth=rand(2,4);
+      g.beginPath(); g.moveTo(sx2,sy2);
+      g.quadraticCurveTo(sx2+rand(-5,5),sy2+rand(14,30),sx2+rand(-7,7),sy2+rand(28,58));
+      g.stroke();
+    }
+    // 上睫毛短刺
+    for(let i=0;i<6;i++){
+      const sx3=ex-28+i*11;
+      g.lineWidth=3;
+      g.beginPath(); g.moveTo(sx3,ey-36); g.lineTo(sx3+rand(-4,4),ey-48-rand(0,8)); g.stroke();
+    }
   }
-  // 充血的眼眶
-  g.strokeStyle='rgba(140,30,26,.6)'; g.lineWidth=3;
-  g.beginPath(); g.ellipse(132,168,35,44,0,0,7); g.stroke();
-  g.beginPath(); g.ellipse(252,162,32,48,.1,0,7); g.stroke();
-  // 鼻腔陰影
-  g.fillStyle='rgba(40,30,30,.5)'; g.beginPath(); g.ellipse(190,218,9,7,0,0,7); g.fill();
-  g.fillStyle='rgba(0,0,0,.85)';
-  g.beginPath(); g.ellipse(184,222,3.5,5,0,0,7); g.fill();
-  g.beginPath(); g.ellipse(198,222,3.5,5,0,0,7); g.fill();
-  // 撐得過開的嘴：露出上排牙的痕跡
-  gr=g.createRadialGradient(192,290,8,192,295,64);
-  gr.addColorStop(0,'#000'); gr.addColorStop(1,'#1c0d0d');
-  g.fillStyle=gr; g.beginPath(); g.ellipse(192,292,52,62,0,0,7); g.fill();
-  g.fillStyle='rgba(190,180,150,.7)';
-  for(let i=0;i<7;i++) g.fillRect(152+i*13,236,9,rand(10,16)|0);
-  g.strokeStyle='rgba(70,40,40,.8)'; g.lineWidth=5;
-  g.beginPath(); g.ellipse(192,292,54,64,0,0,7); g.stroke();
-  // 濕黑長髮：兩側長垂、額前碎瀏海貼在臉上
-  g.fillStyle='rgba(7,5,8,.97)';
-  g.beginPath(); g.ellipse(192,72,150,86,0,Math.PI,0); g.fill();
-  g.strokeStyle='rgba(7,5,8,.95)'; g.lineCap='round';
-  for(let i=0;i<40;i++){
-    const hx=52+i*7.2, side=(i<7||i>33);
-    g.lineWidth=rand(3,7);
-    g.beginPath(); g.moveTo(hx,66+(i*11)%26);
-    if(side) g.bezierCurveTo(hx+rand(-14,14),140,hx+rand(-20,20),230,hx+rand(-26,26),rand(260,382));
-    else g.quadraticCurveTo(hx+rand(-8,8),96,hx+rand(-12,12),rand(104,138));
+  // 細長鼻影與鼻孔
+  g.strokeStyle='rgba(50,40,38,.5)'; g.lineWidth=4;
+  g.beginPath(); g.moveTo(188,200); g.quadraticCurveTo(184,226,186,242); g.stroke();
+  g.fillStyle='rgba(0,0,0,.7)';
+  g.beginPath(); g.ellipse(182,248,4,5.5,0,0,7); g.fill();
+  g.beginPath(); g.ellipse(200,248,4,5.5,0,0,7); g.fill();
+  // 橫跨整張臉的咧笑
+  const x0=84,y0=276, x1=192, yTopCtl=288, x2=300,y2=272, yBotCtl=374;
+  g.fillStyle='#0e0506';
+  g.beginPath();
+  g.moveTo(x0,y0);
+  g.quadraticCurveTo(x1,yTopCtl,x2,y2);
+  g.quadraticCurveTo(x1,yBotCtl,x0,y0);
+  g.fill();
+  // 上下兩排尖牙
+  g.fillStyle='#cfc6b0';
+  for(let i=0;i<12;i++){
+    const t=(i+.5)/12;
+    const tx=qb(x0,x1,x2,t), ty=qb(y0,yTopCtl,y2,t);
+    const len=rand(15,25);
+    g.beginPath(); g.moveTo(tx-7,ty+1); g.lineTo(tx+7,ty+1); g.lineTo(tx,ty+len); g.closePath(); g.fill();
+  }
+  for(let i=0;i<10;i++){
+    const t=(i+.5)/10;
+    const tx=qb(x0,x1,x2,t), by=qb(y0,yBotCtl,y2,t);
+    const len=rand(9,16);
+    g.beginPath(); g.moveTo(tx-6,by-1); g.lineTo(tx+6,by-1); g.lineTo(tx,by-len); g.closePath(); g.fill();
+  }
+  // 唇緣與嘴角撕裂皺褶
+  g.strokeStyle='rgba(45,24,24,.9)'; g.lineWidth=5;
+  g.beginPath(); g.moveTo(x0,y0);
+  g.quadraticCurveTo(x1,yTopCtl,x2,y2);
+  g.quadraticCurveTo(x1,yBotCtl,x0,y0);
+  g.stroke();
+  g.lineWidth=3;
+  g.beginPath(); g.moveTo(x0,y0); g.lineTo(x0-16,y0-12); g.stroke();
+  g.beginPath(); g.moveTo(x2,y2); g.lineTo(x2+15,y2-13); g.stroke();
+  // 齊瀏海與兩側長黑髮
+  g.fillStyle='#070507';
+  g.beginPath(); g.ellipse(192,64,152,80,0,Math.PI,0); g.fill();
+  for(let i=0;i<30;i++){
+    const hx=70+i*8.4;
+    g.fillRect(hx,40,8,52+((i*13)%16));
+  }
+  g.strokeStyle='rgba(7,5,8,.96)'; g.lineCap='round';
+  for(let i=0;i<14;i++){
+    const left=i<7, hx=left?56+i*8:272+(i-7)*8, dir=left?1:-1;
+    g.lineWidth=rand(6,12);
+    g.beginPath(); g.moveTo(hx,70+rand(0,30));
+    g.bezierCurveTo(hx+rand(-10,6)*dir,170,hx+rand(-14,8)*dir,280,hx+rand(-18,10)*dir,rand(330,384));
     g.stroke();
   }
   return c;
@@ -1010,10 +1094,10 @@ function render(dt){
     }
     // 黑暗中的反光眼睛
     if((s.kind==='entity'||s.kind==='phantom')&&lightS<.3&&s.d<7&&trY<zbuf[clamp(sx|0,0,W-1)]){
-      ctx.globalAlpha=clamp(1-s.d/7,0,.8);
-      ctx.fillStyle='#cfc6ae';
-      const ey=sy+sh*.20, ew=Math.max(1,sw*.04);
-      ctx.fillRect(sx-sw*.075,ey,ew,ew*1.3); ctx.fillRect(sx+sw*.04,ey,ew,ew*1.3);
+      ctx.globalAlpha=clamp(1-s.d/7,0,.85);
+      ctx.fillStyle='#e6e0d0';
+      const ey=sy+sh*.155, ew=Math.max(1,sw*.05);
+      ctx.fillRect(sx-sw*.05,ey,ew*1.4,ew*1.6);
     }
     ctx.globalAlpha=1;
   }
