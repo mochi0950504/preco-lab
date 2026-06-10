@@ -169,6 +169,7 @@ function randomFloor(){
 
 /* ============================== 音效引擎 ============================== */
 let AC=null, master=null, noiseBuf=null, whisperGain=null, whisperPan=null, droneNodes=[], humGain=null;
+let reverb=null, distCurve=null, windGain=null;
 function audioInit(){
   if(AC) return;
   AC=new (window.AudioContext||window.webkitAudioContext)();
@@ -179,16 +180,43 @@ function audioInit(){
   noiseBuf=AC.createBuffer(1,AC.sampleRate*2,AC.sampleRate);
   const d=noiseBuf.getChannelData(0);
   for(let i=0;i<d.length;i++) d[i]=Math.random()*2-1;
-  // 低頻環境嗡鳴
-  for(const [f,g] of [[46,.05],[47.6,.04]]){
+  // 失真曲線（尖叫用）＋混凝土地下室殘響
+  distCurve=new Float32Array(257);
+  for(let i=0;i<257;i++) distCurve[i]=Math.tanh((i/128-1)*2.2);
+  const irLen=(AC.sampleRate*2.8)|0, ir=AC.createBuffer(2,irLen,AC.sampleRate);
+  for(let ch=0;ch<2;ch++){ const dd=ir.getChannelData(ch);
+    for(let i=0;i<irLen;i++) dd[i]=(Math.random()*2-1)*Math.pow(1-i/irLen,2.4); }
+  reverb=AC.createConvolver(); reverb.buffer=ir;
+  const rg=AC.createGain(); rg.gain.value=.5;
+  reverb.connect(rg); rg.connect(master);
+  // 低頻環境嗡鳴（含次八度，拍頻緩慢漂移）
+  for(const [f,g] of [[42,.05],[43.7,.045],[84.5,.016]]){
     const o=AC.createOscillator(), gn=AC.createGain();
     o.frequency.value=f; gn.gain.value=g; o.connect(gn); gn.connect(master); o.start();
     droneNodes.push(o);
   }
-  // 通風管氣流聲
+  const dl=AC.createOscillator(), dlg=AC.createGain();
+  dl.frequency.value=.045; dlg.gain.value=1.6;
+  dl.connect(dlg); dlg.connect(droneNodes[1].frequency); dl.start();
+  // 通風管氣流聲（音量緩慢起伏，像房間在呼吸）
   const ns=AC.createBufferSource(), nf=AC.createBiquadFilter(), ng=AC.createGain();
-  ns.buffer=noiseBuf; ns.loop=true; nf.type='lowpass'; nf.frequency.value=210; ng.gain.value=.02;
+  ns.buffer=noiseBuf; ns.loop=true; nf.type='lowpass'; nf.frequency.value=210; ng.gain.value=.018;
+  const bl=AC.createOscillator(), blg=AC.createGain();
+  bl.frequency.value=.09; blg.gain.value=.01;
+  bl.connect(blg); blg.connect(ng.gain); bl.start();
   ns.connect(nf); nf.connect(ng); ng.connect(master); ns.start();
+  // 風聲：中心頻率緩慢游移的窄帶噪音，像風鑽過管道的嗚咽
+  const ws2=AC.createBufferSource(), wf2=AC.createBiquadFilter();
+  windGain=AC.createGain(); windGain.gain.value=.012;
+  ws2.buffer=noiseBuf; ws2.loop=true;
+  wf2.type='bandpass'; wf2.frequency.value=520; wf2.Q.value=14;
+  const wl=AC.createOscillator(), wlg=AC.createGain();
+  wl.frequency.value=.06; wlg.gain.value=260;
+  wl.connect(wlg); wlg.connect(wf2.frequency); wl.start();
+  ws2.connect(wf2); wf2.connect(windGain); windGain.connect(master);
+  const wsend=AC.createGain(); wsend.gain.value=.8;
+  windGain.connect(wsend); wsend.connect(reverb);
+  ws2.start();
   // 耳語層（音量隨「它」的距離調整）
   const ws=AC.createBufferSource(), wf=AC.createBiquadFilter();
   whisperGain=AC.createGain(); whisperPan=AC.createStereoPanner?AC.createStereoPanner():null;
@@ -203,7 +231,10 @@ function audioInit(){
   h.type='sawtooth'; h.frequency.value=100; hf.type='lowpass'; hf.frequency.value=380;
   h.connect(hf); hf.connect(humGain); humGain.connect(master); h.start();
 }
-function playNoise(dur,freq,gain,type='lowpass',pan=0,when=0){
+function sendWet(node,amt){
+  if(reverb&&amt>0){ const s=AC.createGain(); s.gain.value=amt; node.connect(s); s.connect(reverb); }
+}
+function playNoise(dur,freq,gain,type='lowpass',pan=0,when=0,wet=.3){
   if(!AC) return;
   const t=AC.currentTime+when, s=AC.createBufferSource(), f=AC.createBiquadFilter(), g=AC.createGain();
   s.buffer=noiseBuf; s.loop=true; f.type=type; f.frequency.value=freq;
@@ -211,9 +242,9 @@ function playNoise(dur,freq,gain,type='lowpass',pan=0,when=0){
   s.connect(f);
   if(pan&&AC.createStereoPanner){ const p=AC.createStereoPanner(); p.pan.value=clamp(pan,-1,1); f.connect(p); p.connect(g); }
   else f.connect(g);
-  g.connect(master); s.start(t); s.stop(t+dur+.05);
+  g.connect(master); sendWet(g,wet); s.start(t); s.stop(t+dur+.05);
 }
-function playTone(freq,freqEnd,dur,gain,type='sine',when=0,pan=0){
+function playTone(freq,freqEnd,dur,gain,type='sine',when=0,pan=0,wet=.25){
   if(!AC) return;
   const t=AC.currentTime+when, o=AC.createOscillator(), g=AC.createGain();
   o.type=type; o.frequency.setValueAtTime(freq,t);
@@ -222,7 +253,96 @@ function playTone(freq,freqEnd,dur,gain,type='sine',when=0,pan=0){
   o.connect(g);
   let head=g;
   if(pan&&AC.createStereoPanner){ const p=AC.createStereoPanner(); p.pan.value=clamp(pan,-1,1); g.connect(p); head=p; }
-  head.connect(master); o.start(t); o.stop(t+dur+.05);
+  head.connect(master); sendWet(g,wet); o.start(t); o.stop(t+dur+.05);
+}
+/* 人聲尖叫合成：聲帶鋸齒波＋人聲共振峰濾波組＋氣音＋失真 */
+function humanScream(f0,dur,vol,when=0,pan=0){
+  if(!AC) return;
+  const t=AC.currentTime+when;
+  const o=AC.createOscillator(); o.type='sawtooth';
+  const N=40, curve=new Float32Array(N);
+  for(let i=0;i<N;i++){
+    const ph=i/(N-1); let m;
+    if(ph<.14) m=.8+ph/.14*.55;          // 急速上揚
+    else if(ph<.78) m=1.35;               // 高音維持（帶顫抖）
+    else m=1.35-(ph-.78)/.22*.6;          // 收尾下墜
+    curve[i]=Math.max(f0*m*(1+(Math.random()-.5)*.11),30);
+  }
+  o.frequency.setValueCurveAtTime(curve,t,dur);
+  const sum=AC.createGain();
+  for(const [ff,q,gg] of [[740,8,1],[1300,9,.7],[2500,10,.45],[3300,12,.28]]){
+    const bp=AC.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=ff; bp.Q.value=q;
+    const fg=AC.createGain(); fg.gain.value=gg;
+    o.connect(bp); bp.connect(fg); fg.connect(sum);
+  }
+  const ns=AC.createBufferSource(); ns.buffer=noiseBuf; ns.loop=true;
+  const hp=AC.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=1700;
+  const ng=AC.createGain(); ng.gain.value=.3;
+  ns.connect(hp); hp.connect(ng); ng.connect(sum);
+  const ws=AC.createWaveShaper(); ws.curve=distCurve; ws.oversample='2x';
+  const env=AC.createGain();
+  env.gain.setValueAtTime(0,t);
+  env.gain.linearRampToValueAtTime(vol,t+Math.min(.05,dur*.3));
+  env.gain.setValueAtTime(vol,t+dur*.72);
+  env.gain.exponentialRampToValueAtTime(.001,t+dur);
+  sum.connect(ws); ws.connect(env);
+  let head=env;
+  if(pan&&AC.createStereoPanner){ const p=AC.createStereoPanner(); p.pan.value=clamp(pan,-1,1); env.connect(p); head=p; }
+  head.connect(master); sendWet(env,.55);
+  o.start(t); o.stop(t+dur+.05); ns.start(t); ns.stop(t+dur+.05);
+}
+/* 陰森環境事件：不和諧長音／遠處呻吟／金屬管共鳴／次聲湧動／遠處笑聲 */
+function padSwell(){
+  if(!AC) return;
+  const f=rand(180,260), t=AC.currentTime;
+  for(const ff of [f,f*1.06]){
+    const o=AC.createOscillator(), g=AC.createGain();
+    o.frequency.value=ff;
+    g.gain.setValueAtTime(0,t);
+    g.gain.linearRampToValueAtTime(.03,t+2.6);
+    g.gain.linearRampToValueAtTime(0,t+6);
+    o.connect(g); g.connect(master); sendWet(g,.9);
+    o.start(t); o.stop(t+6.2);
+  }
+}
+function moanFar(pan){
+  if(!AC) return;
+  const o=AC.createOscillator(), bp=AC.createBiquadFilter(), g=AC.createGain(), t=AC.currentTime;
+  o.type='sawtooth'; o.frequency.setValueAtTime(120,t);
+  o.frequency.linearRampToValueAtTime(88,t+2.4);
+  bp.type='bandpass'; bp.frequency.value=320; bp.Q.value=2.2;
+  g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(.05,t+.7);
+  g.gain.exponentialRampToValueAtTime(.001,t+2.6);
+  o.connect(bp); bp.connect(g);
+  let head=g;
+  if(AC.createStereoPanner){ const p=AC.createStereoPanner(); p.pan.value=clamp(pan,-1,1); g.connect(p); head=p; }
+  head.connect(master); sendWet(g,1.2);
+  o.start(t); o.stop(t+2.7);
+}
+function pipePing(pan){
+  if(!AC) return;
+  const s=AC.createBufferSource(), f=AC.createBiquadFilter(), g=AC.createGain(), t=AC.currentTime;
+  s.buffer=noiseBuf; s.loop=true;
+  f.type='bandpass'; f.frequency.value=rand(1500,2800); f.Q.value=28;
+  g.gain.setValueAtTime(.5,t); g.gain.exponentialRampToValueAtTime(.001,t+1.4);
+  s.connect(f); f.connect(g);
+  let head=g;
+  if(AC.createStereoPanner){ const p=AC.createStereoPanner(); p.pan.value=clamp(pan,-1,1); g.connect(p); head=p; }
+  head.connect(master); sendWet(g,.8);
+  s.start(t); s.stop(t+1.5);
+}
+function subSwell(){
+  if(!AC) return;
+  const o=AC.createOscillator(), g=AC.createGain(), t=AC.currentTime;
+  o.frequency.value=34;
+  g.gain.setValueAtTime(0,t);
+  g.gain.linearRampToValueAtTime(.16,t+1.6);
+  g.gain.linearRampToValueAtTime(0,t+3.4);
+  o.connect(g); g.connect(master);
+  o.start(t); o.stop(t+3.5);
+}
+function giggleFar(pan){
+  for(let i=0;i<5;i++) humanScream(rand(580,660)-i*28,.09,.05,i*.11,pan);
 }
 const sfx={
   step(run){ playNoise(.09, run?460:360, run?.22:.13); },
@@ -233,7 +353,7 @@ const sfx={
   flash(){ playTone(1800,1200,.03,.08,'square'); },
   drip(pan){ playTone(rand(1400,2100),420,.14,.1,'sine',0,pan); },
   bang(pan){ playNoise(.5,95,.55,'lowpass',pan); playNoise(.35,80,.25,'lowpass',pan,.28); },
-  stinger(){ playTone(700,1500,.5,.34,'sawtooth'); playTone(706,1480,.5,.3,'sawtooth'); playNoise(.4,2500,.18,'highpass'); },
+  stinger(){ humanScream(900,.5,.42); playTone(720,1500,.45,.2,'sawtooth'); playTone(727,1480,.45,.18,'sawtooth'); },
   roar(){ playTone(130,55,1.3,.5,'sawtooth'); playTone(96,48,1.3,.4,'sawtooth'); playNoise(1.1,160,.4); },
   shuffle(vol,pan){ playNoise(.16,260,vol,'lowpass',pan); },
   breath(){ playNoise(.32,750,.12,'bandpass'); },
@@ -243,59 +363,128 @@ const sfx={
   paper(){ playNoise(.22,3400,.07,'highpass'); },
   install(){ playTone(110,78,.07,.32,'square'); playNoise(.07,4200,.09,'highpass'); },
   scream(){
-    playNoise(1.2,800,.55,'highpass');
-    for(const f of [880,1130,1485]) playTone(f,290,1.15,.55,'sawtooth');
-    playTone(66,40,1.2,.6,'square');
+    humanScream(330,1.25,.8);
+    humanScream(760,1.05,.5,.06);
+    playTone(64,38,1.2,.5,'square',0,0,.5);
+    playNoise(1.0,900,.35,'highpass',0,0,.5);
   }
 };
 
 /* ============================== 程序化貼圖 ============================== */
 function mkCanvas(w,h){ const c=document.createElement('canvas'); c.width=w; c.height=h; return c; }
-function makeEntitySprite(){
-  const c=mkCanvas(96,192), g=c.getContext('2d');
-  let gr=g.createLinearGradient(0,40,0,192);
-  gr.addColorStop(0,'#b9b4a8'); gr.addColorStop(.55,'#76726a'); gr.addColorStop(1,'rgba(15,15,18,0)');
+function makeEntityFrame(tilt){
+  const c=mkCanvas(128,256), g=c.getContext('2d'), cx=64;
+  // 染污的病袍：下擺破碎、漸隱入黑暗
+  let gr=g.createLinearGradient(0,60,0,256);
+  gr.addColorStop(0,'#c8c2b2'); gr.addColorStop(.5,'#8e887a');
+  gr.addColorStop(.85,'#4a463e'); gr.addColorStop(1,'rgba(12,12,14,0)');
   g.fillStyle=gr;
-  g.beginPath(); g.ellipse(48,120,21,76,0,0,7); g.fill();
-  g.strokeStyle='rgba(112,108,100,.9)'; g.lineWidth=7; g.lineCap='round';
-  g.beginPath(); g.moveTo(33,68); g.quadraticCurveTo(20,112,25,156); g.stroke();
-  g.beginPath(); g.moveTo(63,68); g.quadraticCurveTo(76,112,71,156); g.stroke();
-  gr=g.createRadialGradient(48,34,4,48,38,26);
-  gr.addColorStop(0,'#e2dccc'); gr.addColorStop(1,'#8a857a');
-  g.fillStyle=gr; g.beginPath(); g.ellipse(48,37,16,21,0,0,7); g.fill();
-  g.fillStyle='rgba(10,8,11,.94)';
-  g.beginPath(); g.ellipse(48,25,18,15,0,Math.PI,0); g.fill();
-  g.fillRect(29,23,9,76); g.fillRect(58,23,9,68);
-  g.fillStyle='#070406';
-  g.beginPath(); g.ellipse(41,39,3.6,5.2,0,0,7); g.fill();
-  g.beginPath(); g.ellipse(55,39,3.6,5.6,.12,0,7); g.fill();
-  g.beginPath(); g.ellipse(48,54,3.4,7,0,0,7); g.fill();
-  g.fillStyle='rgba(30,26,24,.25)';
-  for(let i=0;i<140;i++) g.fillRect(rand(24,72)|0,rand(20,170)|0,1,rand(1,3)|0);
+  g.beginPath();
+  g.moveTo(cx-20,78);
+  g.quadraticCurveTo(cx-34,150,cx-30,236);
+  for(let x=cx-30;x<=cx+30;x+=6) g.lineTo(x,236+((x*7)%9)-4);
+  g.quadraticCurveTo(cx+34,150,cx+20,78);
+  g.closePath(); g.fill();
+  // 污漬垂痕與下擺暗色血漬
+  g.strokeStyle='rgba(40,34,30,.5)'; g.lineWidth=2;
+  for(let i=0;i<8;i++){ const sx=cx-24+i*6.5, sy=95+(i*13)%30;
+    g.beginPath(); g.moveTo(sx,sy); g.lineTo(sx+rand(-3,3),sy+rand(25,80)); g.stroke(); }
+  g.fillStyle='rgba(60,18,14,.5)';
+  g.beginPath(); g.ellipse(cx+10*tilt,222,15,22,0,0,7); g.fill();
+  // 細長蒼白的手臂與手指
+  g.strokeStyle='#a9a294'; g.lineWidth=6; g.lineCap='round';
+  g.beginPath(); g.moveTo(cx-19,84); g.quadraticCurveTo(cx-32,130,cx-28,176); g.stroke();
+  g.beginPath(); g.moveTo(cx+19,84); g.quadraticCurveTo(cx+32,128,cx+27,170+6*tilt); g.stroke();
+  g.lineWidth=1.8; g.strokeStyle='#b7b0a0';
+  for(let f=0;f<4;f++){
+    g.beginPath(); g.moveTo(cx-28,176); g.lineTo(cx-31+f*2.2,190+(f*5)%4); g.stroke();
+    g.beginPath(); g.moveTo(cx+27,170+6*tilt); g.lineTo(cx+30-f*2.2,185+6*tilt+(f*3)%4); g.stroke();
+  }
+  // 不自然歪斜的頭
+  g.save(); g.translate(cx,44); g.rotate(.16*tilt);
+  gr=g.createRadialGradient(0,-6,4,0,0,26);
+  gr.addColorStop(0,'#d9d2c0'); gr.addColorStop(1,'#857f72');
+  g.fillStyle=gr; g.beginPath(); g.ellipse(0,0,17,23,0,0,7); g.fill();
+  g.fillStyle='rgba(96,86,92,.25)';
+  for(let i=0;i<26;i++) g.fillRect(rand(-14,14)|0,rand(-18,20)|0,2,2);
+  g.fillStyle='#171015';
+  g.beginPath(); g.ellipse(2*tilt,13,3.4,5.2,0,0,7); g.fill();
+  g.fillStyle='rgba(8,5,8,.95)';
+  g.beginPath(); g.ellipse(-6*tilt,-2,4.6,5.8,0,0,7); g.fill();
+  g.fillStyle='#cfc8b6'; g.fillRect(-6*tilt-1,-3,2,2);
+  g.restore();
+  // 長黑髮：垂落遮住大半張臉，獨留一隻眼的縫隙
+  g.fillStyle='#0a0709';
+  g.beginPath(); g.ellipse(cx+2*tilt,30,19,17,.1*tilt,Math.PI*.95,Math.PI*2.05); g.fill();
+  g.strokeStyle='rgba(8,6,9,.92)'; g.lineCap='round';
+  const eyeX=cx-6*tilt;
+  for(let i=0;i<44;i++){
+    const a=-1.45+i*.07;
+    const hx=cx+Math.cos(a)*16+rand(-2,2), hy=30+Math.sin(a)*9;
+    if(Math.abs(hx-eyeX)<5&&Math.cos(a)*tilt<0) continue;
+    g.lineWidth=rand(2,4.5);
+    g.beginPath(); g.moveTo(hx,hy);
+    g.bezierCurveTo(hx+rand(-8,8),hy+40+rand(0,20),hx+rand(-12,12),hy+80+rand(0,30),
+      hx+rand(-14,14)+4*tilt,hy+rand(95,150));
+    g.stroke();
+  }
+  // 全身髒污顆粒
+  g.fillStyle='rgba(20,16,16,.2)';
+  for(let i=0;i<160;i++) g.fillRect(rand(28,100)|0,rand(20,230)|0,1,rand(1,3)|0);
   return c;
 }
 function makeFaceSprite(){
-  const c=mkCanvas(320,320), g=c.getContext('2d');
-  let gr=g.createRadialGradient(160,150,30,160,160,180);
-  gr.addColorStop(0,'#ded6c2'); gr.addColorStop(.7,'#8d8678'); gr.addColorStop(1,'#15120f');
-  g.fillStyle=gr; g.beginPath(); g.ellipse(160,165,108,140,0,0,7); g.fill();
-  g.fillStyle='rgba(8,6,9,.96)';
-  g.beginPath(); g.ellipse(160,60,140,90,0,Math.PI,0); g.fill();
-  g.fillRect(28,55,46,240); g.fillRect(248,55,46,225);
-  gr=g.createRadialGradient(112,140,4,112,142,30);
-  gr.addColorStop(0,'#000'); gr.addColorStop(1,'rgba(20,12,12,.85)');
-  g.fillStyle=gr; g.beginPath(); g.ellipse(112,142,25,33,0,0,7); g.fill();
-  gr=g.createRadialGradient(208,138,4,208,140,30);
-  gr.addColorStop(0,'#000'); gr.addColorStop(1,'rgba(20,12,12,.85)');
-  g.fillStyle=gr; g.beginPath(); g.ellipse(208,140,25,35,.1,0,7); g.fill();
-  g.fillStyle='#050204';
-  g.beginPath(); g.ellipse(160,236,26,46,0,0,7); g.fill();
-  g.strokeStyle='rgba(70,55,60,.45)'; g.lineWidth=2;
-  for(let i=0;i<9;i++){ g.beginPath();
-    const sx=rand(80,240), sy=rand(90,270);
-    g.moveTo(sx,sy); g.quadraticCurveTo(sx+rand(-26,26),sy+rand(10,40),sx+rand(-36,36),sy+rand(28,64)); g.stroke(); }
-  g.fillStyle='rgba(25,20,20,.3)';
-  for(let i=0;i<320;i++) g.fillRect(rand(50,270)|0,rand(60,300)|0,2,2);
+  const c=mkCanvas(384,384), g=c.getContext('2d');
+  // 蒼白浮腫的臉
+  let gr=g.createRadialGradient(192,180,40,192,200,220);
+  gr.addColorStop(0,'#e3dbc6'); gr.addColorStop(.62,'#9a9183'); gr.addColorStop(1,'#0e0c0a');
+  g.fillStyle=gr; g.beginPath(); g.ellipse(192,200,132,172,0,0,7); g.fill();
+  // 屍斑般的皮膚紋理
+  g.fillStyle='rgba(110,95,100,.18)';
+  for(let i=0;i<700;i++) g.fillRect(rand(70,314)|0,rand(60,360)|0,rand(1,4)|0,rand(1,4)|0);
+  // 暗紅血管
+  g.strokeStyle='rgba(96,28,30,.5)'; g.lineWidth=1.6;
+  for(let i=0;i<22;i++){ let x=rand(80,300), y=rand(80,330);
+    g.beginPath(); g.moveTo(x,y);
+    for(let k=0;k<4;k++){ x+=rand(-22,22); y+=rand(8,26); g.lineTo(x,y); }
+    g.stroke(); }
+  // 深陷的眼窩：黑洞深處一點慘白瞳孔，位置不對稱
+  for(const [ex,ey,rx,ry,px,py] of [[132,168,33,42,4,6],[252,162,30,46,-3,10]]){
+    gr=g.createRadialGradient(ex,ey,4,ex,ey,rx+18);
+    gr.addColorStop(0,'#000'); gr.addColorStop(.7,'rgba(30,16,16,.95)'); gr.addColorStop(1,'rgba(60,40,40,0)');
+    g.fillStyle=gr; g.beginPath(); g.ellipse(ex,ey,rx+16,ry+14,0,0,7); g.fill();
+    g.fillStyle='#000'; g.beginPath(); g.ellipse(ex,ey,rx,ry,0,0,7); g.fill();
+    g.fillStyle='#d8d2c2'; g.fillRect(ex+px,ey+py,4,5);
+  }
+  // 充血的眼眶
+  g.strokeStyle='rgba(140,30,26,.6)'; g.lineWidth=3;
+  g.beginPath(); g.ellipse(132,168,35,44,0,0,7); g.stroke();
+  g.beginPath(); g.ellipse(252,162,32,48,.1,0,7); g.stroke();
+  // 鼻腔陰影
+  g.fillStyle='rgba(40,30,30,.5)'; g.beginPath(); g.ellipse(190,218,9,7,0,0,7); g.fill();
+  g.fillStyle='rgba(0,0,0,.85)';
+  g.beginPath(); g.ellipse(184,222,3.5,5,0,0,7); g.fill();
+  g.beginPath(); g.ellipse(198,222,3.5,5,0,0,7); g.fill();
+  // 撐得過開的嘴：露出上排牙的痕跡
+  gr=g.createRadialGradient(192,290,8,192,295,64);
+  gr.addColorStop(0,'#000'); gr.addColorStop(1,'#1c0d0d');
+  g.fillStyle=gr; g.beginPath(); g.ellipse(192,292,52,62,0,0,7); g.fill();
+  g.fillStyle='rgba(190,180,150,.7)';
+  for(let i=0;i<7;i++) g.fillRect(152+i*13,236,9,rand(10,16)|0);
+  g.strokeStyle='rgba(70,40,40,.8)'; g.lineWidth=5;
+  g.beginPath(); g.ellipse(192,292,54,64,0,0,7); g.stroke();
+  // 濕黑長髮：兩側長垂、額前碎瀏海貼在臉上
+  g.fillStyle='rgba(7,5,8,.97)';
+  g.beginPath(); g.ellipse(192,72,150,86,0,Math.PI,0); g.fill();
+  g.strokeStyle='rgba(7,5,8,.95)'; g.lineCap='round';
+  for(let i=0;i<40;i++){
+    const hx=52+i*7.2, side=(i<7||i>33);
+    g.lineWidth=rand(3,7);
+    g.beginPath(); g.moveTo(hx,66+(i*11)%26);
+    if(side) g.bezierCurveTo(hx+rand(-14,14),140,hx+rand(-20,20),230,hx+rand(-26,26),rand(260,382));
+    else g.quadraticCurveTo(hx+rand(-8,8),96,hx+rand(-12,12),rand(104,138));
+    g.stroke();
+  }
   return c;
 }
 function makeItemSprite(type){
@@ -356,7 +545,7 @@ function makeNoiseFrames(){
 /* ============================== 遊戲狀態 ============================== */
 const canvas=document.getElementById('view'), ctx=canvas.getContext('2d');
 const W=480, H=300;
-let entityImg, faceImg, fuseImg, battImg, noteImg, phoneImg, boxImg, noiseFrames, vignette;
+let entityFrames, faceImg, fuseImg, battImg, noteImg, phoneImg, boxImg, noiseFrames, vignette;
 let state='title';
 const P={x:0,y:0,ang:Math.PI,run:false,stamina:100,exhausted:false,bob:0,moving:false,stepT:0,breathT:0};
 const E={x:0,y:0,mode:'roam',path:[],repath:0,speed:1.05,lastSeen:null,seenT:0,target:null,waitT:0,stepT:0,lungeT:0};
@@ -374,7 +563,7 @@ const NOTE_DEFS=[
 ];
 let notes=[], phone=null, phantom=null, readingNote=null, rereadScared=false;
 const fusebox={x:22.5,y:2.5};
-let installT=-1, installStep=0, ventDone=false, focusT=0;
+let installT=-1, installStep=0, ventDone=false, focusT=0, ambT=8;
 const keys={};
 function showMsg(t,d=3.2){ msg=t; msgT=d; }
 function resetGame(){
@@ -388,7 +577,7 @@ function resetGame(){
   notes=NOTE_DEFS.map(n=>({...n,read:false,reread:false}));
   phone={x:11.5,y:12.5,ringing:false,answered:false,done:false,ringT:0,rings:0,silentT:-1};
   phantom=null; readingNote=null; rereadScared=false;
-  installT=-1; installStep=0; ventDone=false; focusT=0;
+  installT=-1; installStep=0; ventDone=false; focusT=0; ambT=8;
   if(humGain) humGain.gain.setTargetAtTime(0,AC.currentTime,.1);
   showMsg('找到 4 顆保險絲，恢復供電。（F：手電筒）',5);
 }
@@ -545,7 +734,7 @@ function scareTeleport(){
   for(let i=0;i<40;i++){ const [x,y]=randomFloor(); const d=dist2(P.x,P.y,x+.5,y+.5);
     if(d>4&&d<9&&!los(P.x,P.y,x+.5,y+.5)&&d<bd){bd=d;best=[x,y];} }
   if(best){ E.x=best[0]+.5; E.y=best[1]+.5; E.mode='alert'; E.target=[P.x|0,P.y|0]; E.path=[]; E.repath=0; }
-  playNoise(.8,1800,.22,'bandpass'); playTone(220,180,.9,.1,'sine');
+  playNoise(.8,1800,.22,'bandpass'); humanScream(540,.7,.14,0,rand(-1,1));
   showMsg('……背後好像有什麼東西動了。',3);
 }
 function answerPhone(){
@@ -565,6 +754,17 @@ function spawnPhantom(){
 }
 function updateExtras(dt){
   if(focusT>0) focusT-=dt;
+  // 陰森環境層：不定期的呻吟、金屬共鳴、次聲與不和諧長音
+  ambT-=dt;
+  if(ambT<=0){
+    ambT=rand(9,22);
+    const r=Math.random(), pan=rand(-1,1);
+    if(r<.3) padSwell();
+    else if(r<.5) moanFar(pan);
+    else if(r<.72) pipePing(pan);
+    else if(r<.9) subSwell();
+    else if(gameT>70) giggleFar(pan);
+  }
   // 開場：來路被封
   if(!ventDone&&gameT>25){ ventDone=true; sfx.bang(rand(-.4,.4)); showMsg('……通風管的蓋子掉了。還是，被蓋上了？',3.5); }
   // 走廊深處的電話
@@ -594,7 +794,7 @@ function updateExtras(dt){
     if(Math.abs(dA)<0.55&&los(phantom.x,phantom.y,P.x,P.y)){
       phantom.seenT+=dt;
       if(phantom.seenT>0.3){
-        phantom=null; flickT=.3; playNoise(.4,2600,.3,'highpass'); playTone(70,45,.5,.35,'square');
+        phantom=null; flickT=.3; humanScream(620,.4,.35); playTone(70,45,.5,.3,'square');
         showMsg('……剛剛那裡，是不是站著什麼？',3.2);
       }
     }else if(phantom.t>12){
@@ -611,7 +811,7 @@ function updateExtras(dt){
   }
 }
 function powerOn(){
-  powered=true; sfx.roar();
+  powered=true; sfx.roar(); humanScream(260,1.5,.45,.15);
   if(phone) phone.done=true;
   if(humGain) humGain.gain.setTargetAtTime(.013,AC.currentTime,.3);
   showMsg('電力恢復。逃生門解鎖了——快逃！！',5);
@@ -767,8 +967,9 @@ function render(dt){
   for(const n of notes) sprites.push({x:n.x,y:n.y,img:noteImg,kind:'note'});
   if(phone) sprites.push({x:phone.x,y:phone.y,img:phoneImg,kind:phone.ringing?'item':'prop'});
   sprites.push({x:fusebox.x,y:fusebox.y,img:boxImg,kind:'prop'});
-  if(phantom) sprites.push({x:phantom.x,y:phantom.y,img:entityImg,kind:'phantom'});
-  sprites.push({x:E.x,y:E.y,img:entityImg,kind:'entity'});
+  if(phantom) sprites.push({x:phantom.x,y:phantom.y,img:entityFrames[0],kind:'phantom'});
+  const eD=dist2(P.x,P.y,E.x,E.y);
+  sprites.push({x:E.x,y:E.y,img:entityFrames[((gameT*(eD<5?5:2.2))|0)%2],kind:'entity'});
   for(const s of sprites) s.d=dist2(P.x,P.y,s.x,s.y);
   sprites.sort((a,b)=>b.d-a.d);
   const invDet=1/(planeX*dirY-dirX*planeY);
@@ -990,7 +1191,7 @@ function loop(ts){
   else if(state==='dying') renderDeath(dt);
   else if(state==='winning') renderWin(dt);
 }
-entityImg=makeEntitySprite(); faceImg=makeFaceSprite();
+entityFrames=[makeEntityFrame(1),makeEntityFrame(-1)]; faceImg=makeFaceSprite();
 fuseImg=makeItemSprite('fuse'); battImg=makeItemSprite('batt');
 noteImg=makeNoteSprite(); phoneImg=makePhoneSprite(); boxImg=makeBoxSprite();
 noiseFrames=makeNoiseFrames(); vignette=makeVignette();
