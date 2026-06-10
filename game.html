@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>地下三樓｜B3</title>
+<style>
+  :root{ --red:#c0392b; }
+  *{ margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ width:100%; height:100%; background:#000; overflow:hidden;
+    font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif; color:#cfcabe; }
+  #wrap{ position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:#000; }
+  canvas#view{ image-rendering:pixelated; image-rendering:crisp-edges; background:#000; cursor:crosshair; }
+  .overlay{ position:fixed; inset:0; display:none; flex-direction:column; align-items:center; justify-content:center;
+    background:rgba(0,0,0,.92); z-index:30; text-align:center; padding:24px; }
+  .overlay.show{ display:flex; }
+  .overlay h1{ font-size:42px; letter-spacing:14px; font-weight:700; color:#b9b2a2; margin-bottom:4px; text-shadow:0 0 24px rgba(150,30,20,.5); }
+  .overlay h2{ font-size:13px; letter-spacing:4px; color:#6e6a60; font-weight:400; margin-bottom:26px; }
+  .story{ max-width:560px; font-size:14px; line-height:2; color:#9a948a; text-align:left; white-space:pre-line; margin-bottom:22px; }
+  .controls{ max-width:560px; font-size:12px; line-height:1.9; color:#5f5b53; text-align:left; margin-bottom:24px; }
+  .controls b{ color:#8f897d; font-weight:600; }
+  .warn{ font-size:12px; color:#8a3b30; letter-spacing:2px; margin-bottom:18px; }
+  button.go{ font-family:inherit; font-size:16px; letter-spacing:8px; padding:13px 44px; background:#1a1713; color:#cfc6b2;
+    border:1px solid #4a443a; cursor:pointer; transition:.2s; }
+  button.go:hover{ background:#2a241d; border-color:#7a7264; box-shadow:0 0 18px rgba(160,40,25,.25); }
+  #dead h1{ color:#8e2a20; text-shadow:0 0 30px rgba(160,30,20,.8); }
+  #win h1{ color:#9aa78d; text-shadow:0 0 24px rgba(120,160,110,.35); }
+  .stats{ font-size:13px; color:#6e6a60; line-height:2; margin-bottom:26px; }
+  /* 觸控 UI */
+  #touchui{ display:none; position:fixed; inset:0; z-index:20; pointer-events:none; }
+  body.touch #touchui{ display:block; }
+  #stick{ position:absolute; left:24px; bottom:24px; width:120px; height:120px; border:1px solid rgba(255,255,255,.18);
+    border-radius:50%; background:rgba(255,255,255,.04); }
+  #knob{ position:absolute; left:40px; top:40px; width:40px; height:40px; border-radius:50%; background:rgba(255,255,255,.18); }
+  .tbtn{ position:absolute; width:62px; height:62px; border-radius:50%; border:1px solid rgba(255,255,255,.22);
+    background:rgba(255,255,255,.06); color:#cfcabe; font-size:13px; display:flex; align-items:center; justify-content:center;
+    pointer-events:auto; user-select:none; -webkit-user-select:none; }
+  #btnRun{ right:24px; bottom:120px; } #btnLight{ right:100px; bottom:40px; } #btnE{ right:24px; bottom:40px; }
+</style>
+</head>
+<body>
+<div id="wrap"><canvas id="view" width="480" height="300"></canvas></div>
+
+<div id="touchui">
+  <div id="stick"><div id="knob"></div></div>
+  <div class="tbtn" id="btnRun">跑</div>
+  <div class="tbtn" id="btnLight">燈</div>
+  <div class="tbtn" id="btnE">E</div>
+</div>
+
+<div class="overlay show" id="title">
+  <h1>地下三樓</h1>
+  <h2>同仁醫院・都市探險錄影檔 #047</h2>
+  <div class="story">凌晨 2:17。
+你是都市探險頻道的攝影師。為了拍到傳說中三十年沒人敢進的「同仁醫院地下三樓」，你獨自從通風管爬了進來——落地的時候，手機摔壞了。
+身上只剩一支手電筒，和你頭上還在錄影的攝影機。
+電梯沒有電。唯一的逃生門被電磁鎖鎖死。
+配電箱上貼著一張發黃的告示：「停電時請補回四顆保險絲，恢復供電後方可開啟逃生門。」
+走廊深處，傳來像是有人赤腳踩過積水的聲音。
+……你開始後悔了。</div>
+  <div class="controls">
+    <b>WASD／方向鍵</b>　移動　　<b>滑鼠</b>　轉視角（點畫面鎖定）<br>
+    <b>Shift</b>　奔跑——腳步聲會引來「它」<br>
+    <b>F</b>　手電筒——照得越亮，「它」越容易看見你<br>
+    <b>E</b>　互動　　<b>Esc</b>　暫停<br><br>
+    提示：聽到心跳聲，代表它就在附近。關燈、放慢腳步、別出聲。
+  </div>
+  <div class="warn">⚠ 本遊戲含突發驚嚇畫面與巨大聲響，請戴耳機並調整音量 ⚠</div>
+  <button class="go" id="btnStart">開始錄影</button>
+</div>
+
+<div class="overlay" id="dead">
+  <h1>訊號中斷</h1>
+  <h2>錄影檔在此損毀</h2>
+  <div class="stats" id="deadStats"></div>
+  <button class="go" id="btnRetry">再試一次</button>
+</div>
+
+<div class="overlay" id="win">
+  <h1>你逃出來了</h1>
+  <h2>但攝影機拍到的東西，你一輩子都忘不掉</h2>
+  <div class="stats" id="winStats"></div>
+  <button class="go" id="btnAgain">再玩一次</button>
+</div>
+
+<div class="overlay" id="pause">
+  <h1 style="font-size:28px;letter-spacing:8px;">暫停</h1>
+  <div class="stats">它不會等你太久。</div>
+  <button class="go" id="btnResume">繼續</button>
+</div>
+
+<script>
+'use strict';
+/* ============================== 地圖 ============================== */
+const MAP=[
+"########################",
+"#....................P.D",
+"#......................#",
+"#..###.####..####.###..#",
+"#..#...#.B#..#B.....#..#",
+"#..#......#..#......#..#",
+"#..#...#............#..#",
+"#..#...#..#..###.####..#",
+"#..#F..#..#..#......#..#",
+"#..#...#..#..#.....F#..#",
+"#..########..########..#",
+"#......................#",
+"#......................#",
+"#..##.#####..#####.##..#",
+"#..#..#..B#..#......#..#",
+"#..#..#.G.#.........#..#",
+"#..#......#..#......#..#",
+"#..#..#......##.#####..#",
+"#..#F.#...#..#B.....#..#",
+"#..#..#...#..#.....F#..#",
+"#..#####.##..##.#####..#",
+"#.B....................#",
+"#......................#",
+"########################"
+];
+const MW=24, MH=MAP.length;
+let grid=[], items=[], pStart={x:21.5,y:1.5}, gStart={x:8.5,y:15.5}, doorPos={x:23,y:1};
+function parseMap(){
+  grid=[]; items=[];
+  for(let y=0;y<MH;y++){ grid[y]=[];
+    for(let x=0;x<MW;x++){ const ch=(MAP[y][x]||'#');
+      if(ch==='#'){grid[y][x]=1;}
+      else if(ch==='D'){grid[y][x]=2; doorPos={x,y};}
+      else{ grid[y][x]=0;
+        if(ch==='P') pStart={x:x+.5,y:y+.5};
+        if(ch==='G') gStart={x:x+.5,y:y+.5};
+        if(ch==='F') items.push({type:'fuse',x:x+.5,y:y+.5,taken:false});
+        if(ch==='B') items.push({type:'batt',x:x+.5,y:y+.5,taken:false});
+      }
+    }
+  }
+}
+const solid=(x,y)=> (x<0||y<0||x>=MW||y>=MH)?true:grid[y|0]?grid[y|0][x|0]>0:true;
+
+/* ============================== 工具 ============================== */
+const clamp=(v,a,b)=>v<a?a:v>b?b:v;
+const rand=(a,b)=>a+Math.random()*(b-a);
+const dist2=(ax,ay,bx,by)=>Math.hypot(ax-bx,ay-by);
+function los(ax,ay,bx,by){
+  const d=dist2(ax,ay,bx,by), steps=Math.ceil(d/0.1);
+  for(let i=1;i<steps;i++){ const t=i/steps;
+    if(solid(ax+(bx-ax)*t, ay+(by-ay)*t)) return false; }
+  return true;
+}
+function bfsPath(sx,sy,tx,ty){
+  sx|=0;sy|=0;tx|=0;ty|=0;
+  if(solid(tx,ty)) return null;
+  const prev=new Map(), q=[[sx,sy]]; prev.set(sy*MW+sx,-1);
+  while(q.length){ const [cx,cy]=q.shift();
+    if(cx===tx&&cy===ty){ const path=[]; let k=cy*MW+cx;
+      while(k!==-1){ path.push([k%MW,(k/MW)|0]); k=prev.get(k); }
+      path.reverse(); path.shift(); return path; }
+    for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
+      const nx=cx+dx, ny=cy+dy, k=ny*MW+nx;
+      if(!solid(nx,ny)&&!prev.has(k)){ prev.set(k,cy*MW+cx); q.push([nx,ny]); }
+    }
+  }
+  return null;
+}
+function randomFloor(){
+  for(;;){ const x=(Math.random()*MW)|0, y=(Math.random()*MH)|0; if(!solid(x,y)) return [x,y]; }
+}
+
+/* ============================== 音效引擎 ============================== */
+let AC=null, master=null, noiseBuf=null, whisperGain=null, whisperPan=null, droneNodes=[], humGain=null;
+function audioInit(){
+  if(AC) return;
+  AC=new (window.AudioContext||window.webkitAudioContext)();
+  const comp=AC.createDynamicsCompressor();
+  comp.threshold.value=-18; comp.ratio.value=8;
+  master=AC.createGain(); master.gain.value=.9;
+  master.connect(comp); comp.connect(AC.destination);
+  noiseBuf=AC.createBuffer(1,AC.sampleRate*2,AC.sampleRate);
+  const d=noiseBuf.getChannelData(0);
+  for(let i=0;i<d.length;i++) d[i]=Math.random()*2-1;
+  // 低頻環境嗡鳴
+  for(const [f,g] of [[46,.05],[47.6,.04]]){
+    const o=AC.createOscillator(), gn=AC.createGain();
+    o.frequency.value=f; gn.gain.value=g; o.connect(gn); gn.connect(master); o.start();
+    droneNodes.push(o);
+  }
+  // 通風管氣流聲
+  const ns=AC.createBufferSource(), nf=AC.createBiquadFilter(), ng=AC.createGain();
+  ns.buffer=noiseBuf; ns.loop=true; nf.type='lowpass'; nf.frequency.value=210; ng.gain.value=.02;
+  ns.connect(nf); nf.connect(ng); ng.connect(master); ns.start();
+  // 耳語層（音量隨「它」的距離調整）
+  const ws=AC.createBufferSource(), wf=AC.createBiquadFilter();
+  whisperGain=AC.createGain(); whisperPan=AC.createStereoPanner?AC.createStereoPanner():null;
+  ws.buffer=noiseBuf; ws.loop=true; ws.playbackRate.value=.4;
+  wf.type='bandpass'; wf.frequency.value=1500; wf.Q.value=4; whisperGain.gain.value=0;
+  ws.connect(wf); wf.connect(whisperGain);
+  if(whisperPan){ whisperGain.connect(whisperPan); whisperPan.connect(master); } else whisperGain.connect(master);
+  ws.start();
+  // 供電後的電流嗡聲
+  const h=AC.createOscillator(), hf=AC.createBiquadFilter();
+  humGain=AC.createGain(); humGain.gain.value=0;
+  h.type='sawtooth'; h.frequency.value=100; hf.type='lowpass'; hf.frequency.value=380;
+  h.connect(hf); hf.connect(humGain); humGain.connect(master); h.start();
+}
+function playNoise(dur,freq,gain,type='lowpass',pan=0,when=0){
+  if(!AC) return;
+  const t=AC.currentTime+when, s=AC.createBufferSource(), f=AC.createBiquadFilter(), g=AC.createGain();
+  s.buffer=noiseBuf; s.loop=true; f.type=type; f.frequency.value=freq;
+  g.gain.setValueAtTime(gain,t); g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+  s.connect(f);
+  if(pan&&AC.createStereoPanner){ const p=AC.createStereoPanner(); p.pan.value=clamp(pan,-1,1); f.connect(p); p.connect(g); }
+  else f.connect(g);
+  g.connect(master); s.start(t); s.stop(t+dur+.05);
+}
+function playTone(freq,freqEnd,dur,gain,type='sine',when=0,pan=0){
+  if(!AC) return;
+  const t=AC.currentTime+when, o=AC.createOscillator(), g=AC.createGain();
+  o.type=type; o.frequency.setValueAtTime(freq,t);
+  if(freqEnd) o.frequency.exponentialRampToValueAtTime(Math.max(freqEnd,1),t+dur);
+  g.gain.setValueAtTime(gain,t); g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+  o.connect(g);
+  let head=g;
+  if(pan&&AC.createStereoPanner){ const p=AC.createStereoPanner(); p.pan.value=clamp(pan,-1,1); g.connect(p); head=p; }
+  head.connect(master); o.start(t); o.stop(t+dur+.05);
+}
+const sfx={
+  step(run){ playNoise(.09, run?460:360, run?.22:.13); },
+  heartbeat(){ playTone(55,40,.13,.5,'sine'); playTone(50,38,.11,.3,'sine',.16); },
+  pickup(){ playTone(660,990,.16,.22,'triangle'); },
+  fuse(){ playTone(90,70,.08,.4,'square'); playNoise(.15,220,.3); },
+  battery(){ playTone(440,880,.12,.18,'triangle'); playTone(880,1320,.1,.12,'triangle',.1); },
+  flash(){ playTone(1800,1200,.03,.08,'square'); },
+  drip(pan){ playTone(rand(1400,2100),420,.14,.1,'sine',0,pan); },
+  bang(pan){ playNoise(.5,95,.55,'lowpass',pan); playNoise(.35,80,.25,'lowpass',pan,.28); },
+  stinger(){ playTone(700,1500,.5,.34,'sawtooth'); playTone(706,1480,.5,.3,'sawtooth'); playNoise(.4,2500,.18,'highpass'); },
+  roar(){ playTone(130,55,1.3,.5,'sawtooth'); playTone(96,48,1.3,.4,'sawtooth'); playNoise(1.1,160,.4); },
+  shuffle(vol,pan){ playNoise(.16,260,vol,'lowpass',pan); },
+  breath(){ playNoise(.32,750,.12,'bandpass'); },
+  hum(pan){ const seq=[440,523.25,493.88,440,415.3]; seq.forEach((f,i)=>playTone(f+rand(-4,4),0,.5,.045,'sine',i*.46,pan)); },
+  door(){ playNoise(1.1,120,.5); playTone(310,255,.7,.16,'sawtooth',.15); },
+  scream(){
+    playNoise(1.2,800,.55,'highpass');
+    for(const f of [880,1130,1485]) playTone(f,290,1.15,.55,'sawtooth');
+    playTone(66,40,1.2,.6,'square');
+  }
+};
+
+/* ============================== 程序化貼圖 ============================== */
+function mkCanvas(w,h){ const c=document.createElement('canvas'); c.width=w; c.height=h; return c; }
+function makeEntitySprite(){
+  const c=mkCanvas(96,192), g=c.getContext('2d');
+  let gr=g.createLinearGradient(0,40,0,192);
+  gr.addColorStop(0,'#b9b4a8'); gr.addColorStop(.55,'#76726a'); gr.addColorStop(1,'rgba(15,15,18,0)');
+  g.fillStyle=gr;
+  g.beginPath(); g.ellipse(48,120,21,76,0,0,7); g.fill();
+  g.strokeStyle='rgba(112,108,100,.9)'; g.lineWidth=7; g.lineCap='round';
+  g.beginPath(); g.moveTo(33,68); g.quadraticCurveTo(20,112,25,156); g.stroke();
+  g.beginPath(); g.moveTo(63,68); g.quadraticCurveTo(76,112,71,156); g.stroke();
+  gr=g.createRadialGradient(48,34,4,48,38,26);
+  gr.addColorStop(0,'#e2dccc'); gr.addColorStop(1,'#8a857a');
+  g.fillStyle=gr; g.beginPath(); g.ellipse(48,37,16,21,0,0,7); g.fill();
+  g.fillStyle='rgba(10,8,11,.94)';
+  g.beginPath(); g.ellipse(48,25,18,15,0,Math.PI,0); g.fill();
+  g.fillRect(29,23,9,76); g.fillRect(58,23,9,68);
+  g.fillStyle='#070406';
+  g.beginPath(); g.ellipse(41,39,3.6,5.2,0,0,7); g.fill();
+  g.beginPath(); g.ellipse(55,39,3.6,5.6,.12,0,7); g.fill();
+  g.beginPath(); g.ellipse(48,54,3.4,7,0,0,7); g.fill();
+  g.fillStyle='rgba(30,26,24,.25)';
+  for(let i=0;i<140;i++) g.fillRect(rand(24,72)|0,rand(20,170)|0,1,rand(1,3)|0);
+  return c;
+}
+function makeFaceSprite(){
+  const c=mkCanvas(320,320), g=c.getContext('2d');
+  let gr=g.createRadialGradient(160,150,30,160,160,180);
+  gr.addColorStop(0,'#ded6c2'); gr.addColorStop(.7,'#8d8678'); gr.addColorStop(1,'#15120f');
+  g.fillStyle=gr; g.beginPath(); g.ellipse(160,165,108,140,0,0,7); g.fill();
+  g.fillStyle='rgba(8,6,9,.96)';
+  g.beginPath(); g.ellipse(160,60,140,90,0,Math.PI,0); g.fill();
+  g.fillRect(28,55,46,240); g.fillRect(248,55,46,225);
+  gr=g.createRadialGradient(112,140,4,112,142,30);
+  gr.addColorStop(0,'#000'); gr.addColorStop(1,'rgba(20,12,12,.85)');
+  g.fillStyle=gr; g.beginPath(); g.ellipse(112,142,25,33,0,0,7); g.fill();
+  gr=g.createRadialGradient(208,138,4,208,140,30);
+  gr.addColorStop(0,'#000'); gr.addColorStop(1,'rgba(20,12,12,.85)');
+  g.fillStyle=gr; g.beginPath(); g.ellipse(208,140,25,35,.1,0,7); g.fill();
+  g.fillStyle='#050204';
+  g.beginPath(); g.ellipse(160,236,26,46,0,0,7); g.fill();
+  g.strokeStyle='rgba(70,55,60,.45)'; g.lineWidth=2;
+  for(let i=0;i<9;i++){ g.beginPath();
+    const sx=rand(80,240), sy=rand(90,270);
+    g.moveTo(sx,sy); g.quadraticCurveTo(sx+rand(-26,26),sy+rand(10,40),sx+rand(-36,36),sy+rand(28,64)); g.stroke(); }
+  g.fillStyle='rgba(25,20,20,.3)';
+  for(let i=0;i<320;i++) g.fillRect(rand(50,270)|0,rand(60,300)|0,2,2);
+  return c;
+}
+function makeItemSprite(type){
+  const c=mkCanvas(40,40), g=c.getContext('2d');
+  const col= type==='fuse' ? [255,176,60] : [110,235,140];
+  let gr=g.createRadialGradient(20,20,2,20,20,19);
+  gr.addColorStop(0,`rgba(${col[0]},${col[1]},${col[2]},.85)`);
+  gr.addColorStop(.5,`rgba(${col[0]},${col[1]},${col[2]},.22)`);
+  gr.addColorStop(1,'rgba(0,0,0,0)');
+  g.fillStyle=gr; g.fillRect(0,0,40,40);
+  if(type==='fuse'){
+    g.fillStyle='#caa14a'; g.fillRect(15,11,10,18);
+    g.fillStyle='#6f6354'; g.fillRect(14,9,12,4); g.fillRect(14,27,12,4);
+  }else{
+    g.fillStyle='#2e7a44'; g.fillRect(14,10,12,20);
+    g.fillStyle='#9fe8af'; g.fillRect(17,7,6,4);
+  }
+  return c;
+}
+function makeNoiseFrames(){
+  const arr=[];
+  for(let k=0;k<4;k++){ const c=mkCanvas(120,75), g=c.getContext('2d');
+    const im=g.createImageData(120,75);
+    for(let i=0;i<im.data.length;i+=4){ const v=(Math.random()*255)|0;
+      im.data[i]=v; im.data[i+1]=v; im.data[i+2]=v; im.data[i+3]=(Math.random()*70)|0; }
+    g.putImageData(im,0,0); arr.push(c); }
+  return arr;
+}
+
+/* ============================== 遊戲狀態 ============================== */
+const canvas=document.getElementById('view'), ctx=canvas.getContext('2d');
+const W=480, H=300;
+let entityImg, faceImg, fuseImg, battImg, noiseFrames, vignette;
+let state='title';
+const P={x:0,y:0,ang:Math.PI,run:false,stamina:100,exhausted:false,bob:0,moving:false,stepT:0,breathT:0};
+const E={x:0,y:0,mode:'roam',path:[],repath:0,speed:1.05,lastSeen:null,seenT:0,target:null,waitT:0,stepT:0,lungeT:0};
+let flashOn=true, battery=100, fuses=0, powered=false, gameT=0, hbT=0, eventT=0, flickT=0, flickV=1;
+let msg='', msgT=0, deathT=0, winT=0, battsUsed=0, interactPulse=false, staticLv=0, redPulse=0;
+const keys={};
+function showMsg(t,d=3.2){ msg=t; msgT=d; }
+function resetGame(){
+  parseMap();
+  P.x=pStart.x; P.y=pStart.y; P.ang=0; P.run=false; P.stamina=100; P.exhausted=false;
+  P.bob=0; P.moving=false; P.stepT=0; P.breathT=0;
+  E.x=gStart.x; E.y=gStart.y; E.mode='roam'; E.path=[]; E.repath=0; E.speed=1.05;
+  E.lastSeen=null; E.seenT=0; E.target=null; E.waitT=0; E.lungeT=0;
+  flashOn=true; battery=100; fuses=0; powered=false; gameT=0; hbT=0; eventT=rand(14,24);
+  flickT=0; flickV=1; msg=''; msgT=0; deathT=0; winT=0; battsUsed=0; staticLv=0;
+  if(humGain) humGain.gain.setTargetAtTime(0,AC.currentTime,.1);
+  showMsg('找到 4 顆保險絲，恢復供電。（F：手電筒）',5);
+}
+
+/* ============================== 輸入 ============================== */
+let locked=false, touchMove={x:0,y:0}, lookTouch=null;
+document.addEventListener('keydown',e=>{
+  keys[e.code]=true;
+  if(e.code==='KeyF'&&state==='playing'){ flashOn=!flashOn; sfx.flash(); }
+  if(e.code==='KeyE') interactPulse=true;
+  if(e.code==='Escape'&&state==='playing') pauseGame();
+  if(['ArrowUp','ArrowDown','Space'].includes(e.code)) e.preventDefault();
+});
+document.addEventListener('keyup',e=>{ keys[e.code]=false; });
+canvas.addEventListener('click',()=>{
+  if(state==='playing'&&!locked&&!('ontouchstart' in window)) canvas.requestPointerLock&&canvas.requestPointerLock();
+});
+document.addEventListener('pointerlockchange',()=>{
+  locked=document.pointerLockElement===canvas;
+  if(!locked&&state==='playing') pauseGame();
+});
+document.addEventListener('mousemove',e=>{
+  if(locked&&state==='playing') P.ang+=e.movementX*0.0022;
+});
+/* 觸控 */
+const stick=document.getElementById('stick'), knob=document.getElementById('knob');
+let stickTouch=null;
+function setupTouch(){
+  document.body.classList.add('touch');
+  window.addEventListener('touchstart',e=>{
+    for(const t of e.changedTouches){
+      if(t.clientX<window.innerWidth*.45&&stickTouch===null){ stickTouch=t.identifier; moveStick(t); }
+      else if(lookTouch===null&&!e.target.classList.contains('tbtn')) lookTouch={id:t.identifier,x:t.clientX};
+    }
+  },{passive:true});
+  window.addEventListener('touchmove',e=>{
+    for(const t of e.changedTouches){
+      if(t.identifier===stickTouch) moveStick(t);
+      else if(lookTouch&&t.identifier===lookTouch.id){ P.ang+=(t.clientX-lookTouch.x)*0.006; lookTouch.x=t.clientX; }
+    }
+    e.preventDefault();
+  },{passive:false});
+  window.addEventListener('touchend',e=>{
+    for(const t of e.changedTouches){
+      if(t.identifier===stickTouch){ stickTouch=null; touchMove={x:0,y:0}; knob.style.left='40px'; knob.style.top='40px'; }
+      if(lookTouch&&t.identifier===lookTouch.id) lookTouch=null;
+    }
+  },{passive:true});
+  function moveStick(t){
+    const r=stick.getBoundingClientRect(), cx=r.left+60, cy=r.top+60;
+    let dx=(t.clientX-cx)/50, dy=(t.clientY-cy)/50;
+    const m=Math.hypot(dx,dy); if(m>1){dx/=m;dy/=m;}
+    touchMove={x:dx,y:dy};
+    knob.style.left=(40+dx*36)+'px'; knob.style.top=(40+dy*36)+'px';
+  }
+  const hold=(id,on,off)=>{ const el=document.getElementById(id);
+    el.addEventListener('touchstart',e=>{e.preventDefault();on();},{passive:false});
+    if(off) el.addEventListener('touchend',e=>{e.preventDefault();off();},{passive:false}); };
+  hold('btnRun',()=>P.run=true,()=>P.run=false);
+  hold('btnLight',()=>{ if(state==='playing'){flashOn=!flashOn; sfx.flash();} });
+  hold('btnE',()=>interactPulse=true);
+}
+if('ontouchstart' in window) setupTouch();
+
+/* ============================== 玩家更新 ============================== */
+function tryMove(nx,ny){
+  const r=0.25;
+  if(!solid(nx+r,P.y)&&!solid(nx-r,P.y)&&!solid(nx,P.y+r)&&!solid(nx,P.y-r)) P.x=nx;
+  if(!solid(P.x+r,ny)&&!solid(P.x-r,ny)&&!solid(P.x,ny+r)&&!solid(P.x,ny-r)) P.y=ny;
+}
+function updatePlayer(dt){
+  let fwd=0, str=0;
+  if(keys['KeyW']||keys['ArrowUp']) fwd+=1;
+  if(keys['KeyS']||keys['ArrowDown']) fwd-=1;
+  if(keys['KeyA']) str-=1;
+  if(keys['KeyD']) str+=1;
+  if(keys['ArrowLeft']) P.ang-=2.4*dt;
+  if(keys['ArrowRight']) P.ang+=2.4*dt;
+  fwd+=-touchMove.y; str+=touchMove.x;
+  const mag=Math.hypot(fwd,str);
+  P.moving=mag>0.15;
+  const wantRun=(keys['ShiftLeft']||keys['ShiftRight']||P.run)&&P.moving;
+  if(P.exhausted&&P.stamina>28) P.exhausted=false;
+  const running=wantRun&&!P.exhausted&&P.stamina>0;
+  if(running){ P.stamina-=27*dt; if(P.stamina<=0){P.stamina=0;P.exhausted=true;} }
+  else P.stamina=clamp(P.stamina+13*dt,0,100);
+  if(P.stamina<26){ P.breathT-=dt; if(P.breathT<=0){ sfx.breath(); P.breathT=1.05; } }
+  const spd=(running?3.55:2.0)*(mag>1?1/mag:1);
+  if(P.moving){
+    const dx=(Math.cos(P.ang)*fwd - Math.sin(P.ang)*str)*spd*dt;
+    const dy=(Math.sin(P.ang)*fwd + Math.cos(P.ang)*str)*spd*dt;
+    tryMove(P.x+dx,P.y+dy);
+    P.bob+=dt*spd*3.1;
+    P.stepT-=dt;
+    if(P.stepT<=0){ sfx.step(running); P.stepT=running?0.36:0.55; }
+  }
+  P.runningNow=running;
+  // 撿東西
+  for(const it of items){
+    if(!it.taken&&dist2(P.x,P.y,it.x,it.y)<0.55){
+      it.taken=true;
+      if(it.type==='fuse'){
+        fuses++; sfx.fuse();
+        if(fuses<4) showMsg(`撿到保險絲（${fuses}/4）`,3);
+        if(fuses===2){ scareTeleport(); }
+        if(fuses===4) powerOn();
+      }else{
+        battery=clamp(battery+55,0,100); battsUsed++; sfx.battery();
+        showMsg('換上新電池。',2.5);
+      }
+    }
+  }
+  // 手電筒耗電
+  if(flashOn&&battery>0){ battery-=dt*(100/140); if(battery<=0){ battery=0; showMsg('……手電筒沒電了。',3); } }
+  // 出口互動
+  const dDoor=dist2(P.x,P.y,doorPos.x+.5,doorPos.y+.5);
+  P.nearDoor=dDoor<1.8;
+  if(P.nearDoor&&interactPulse){
+    if(powered){ startWin(); }
+    else showMsg(`逃生門被電磁鎖鎖死。配電箱還缺 ${4-fuses} 顆保險絲。`,3.2);
+  }
+  interactPulse=false;
+}
+function scareTeleport(){
+  // 第二顆保險絲：它瞬間出現在附近（無視線處）
+  let best=null,bd=1e9;
+  for(let i=0;i<40;i++){ const [x,y]=randomFloor(); const d=dist2(P.x,P.y,x+.5,y+.5);
+    if(d>4&&d<9&&!los(P.x,P.y,x+.5,y+.5)&&d<bd){bd=d;best=[x,y];} }
+  if(best){ E.x=best[0]+.5; E.y=best[1]+.5; E.mode='alert'; E.target=[P.x|0,P.y|0]; E.path=[]; E.repath=0; }
+  playNoise(.8,1800,.22,'bandpass'); playTone(220,180,.9,.1,'sine');
+  showMsg('……背後好像有什麼東西動了。',3);
+}
+function powerOn(){
+  powered=true; sfx.roar();
+  if(humGain) humGain.gain.setTargetAtTime(.013,AC.currentTime,.3);
+  showMsg('電力恢復。逃生門解鎖了——快逃！！',5);
+  // 它從深處出現，進入永久追獵
+  let best=null,bd=-1;
+  for(const [x,y] of [[2,21],[8,15],[2,2],[15,18],[18,8]]){
+    const d=dist2(P.x,P.y,x+.5,y+.5); if(d>bd&&!solid(x,y)){bd=d;best=[x,y];} }
+  E.x=best[0]+.5; E.y=best[1]+.5; E.mode='hunt'; E.path=[]; E.repath=0;
+  setTimeout(()=>{ if(state==='playing') sfx.stinger(); },900);
+}
+
+/* ============================== 「它」的 AI ============================== */
+function updateEntity(dt){
+  const d=dist2(P.x,P.y,E.x,E.y);
+  const seeing=los(E.x,E.y,P.x,P.y);
+  const sight=flashOn&&battery>0?9:4.5;
+  const hearR=P.moving?(P.runningNow?7.5:2.8):0;
+  if(E.mode!=='hunt'){
+    if(seeing&&d<sight){
+      if(E.mode!=='chase'){ sfx.stinger(); showMsg('它看見你了——跑！！',2.5); }
+      E.mode='chase'; E.seenT=0; E.lastSeen=[P.x,P.y];
+    }else if(E.mode==='chase'){
+      E.seenT+=dt;
+      if(E.seenT>2.6&&d>5){ E.mode='alert'; E.target=[E.lastSeen[0]|0,E.lastSeen[1]|0]; E.path=[]; }
+    }else if(hearR>0&&d<hearR){
+      E.mode='alert'; E.target=[P.x|0,P.y|0]; E.path=[]; E.repath=0;
+    }
+  }
+  // 速度
+  let spd;
+  if(E.mode==='chase'||E.mode==='hunt') spd=powered?2.75:(2.15+fuses*.1);
+  else if(E.mode==='alert') spd=1.7;
+  else spd=1.05;
+  if(d<2.2) spd*=1.45; // 撲擊
+  E.speed=spd;
+  // 目標 & 路徑
+  E.repath-=dt;
+  if((E.mode==='chase'||E.mode==='hunt')&&E.repath<=0){
+    E.path=bfsPath(E.x,E.y,P.x|0,P.y|0)||[]; E.repath=E.mode==='hunt'?0.9:0.45;
+    if(E.mode==='chase') E.lastSeen=[P.x,P.y];
+  }
+  if(E.mode==='alert'&&!E.path.length){
+    if(E.target){ E.path=bfsPath(E.x,E.y,E.target[0],E.target[1])||[]; E.target=null; }
+    else{ E.waitT+=dt; if(E.waitT>1.6){ E.waitT=0; E.mode='roam'; } }
+  }
+  if(E.mode==='roam'&&!E.path.length){
+    const [x,y]=randomFloor(); E.path=bfsPath(E.x,E.y,x,y)||[];
+  }
+  // 沿路徑移動
+  if(E.path.length){
+    const [nx,ny]=E.path[0], tx=nx+.5, ty=ny+.5;
+    const dx=tx-E.x, dy=ty-E.y, m=Math.hypot(dx,dy);
+    if(m<0.12) E.path.shift();
+    else{ E.x+=dx/m*spd*dt; E.y+=dy/m*spd*dt; }
+    E.stepT-=dt;
+    if(E.stepT<=0&&d<11){
+      const rel=Math.atan2(E.y-P.y,E.x-P.x)-P.ang;
+      sfx.shuffle((1-d/11)*.4, Math.sin(rel));
+      E.stepT=0.62/Math.max(spd,0.8)*rand(.8,1.2);
+    }
+  }
+  // 心跳
+  let bpm=0;
+  if(d<10) bpm=55+(10-d)/8*105;
+  if(bpm>0){ hbT-=dt; if(hbT<=0){ sfx.heartbeat(); hbT=60/clamp(bpm,55,170); } }
+  // 耳語 & 雜訊
+  const near=clamp(1-d/5.5,0,1)*(seeing?1:.45);
+  staticLv=near;
+  if(whisperGain&&AC){
+    whisperGain.gain.setTargetAtTime(near*.12,AC.currentTime,.15);
+    if(whisperPan){ const rel=Math.atan2(E.y-P.y,E.x-P.x)-P.ang;
+      whisperPan.pan.setTargetAtTime(clamp(Math.sin(rel),-1,1),AC.currentTime,.1); }
+  }
+  // 手電筒受干擾閃爍
+  if(d<5&&flashOn){ if(Math.random()<dt*7) flickT=rand(.04,.16); }
+  if(flickT>0){ flickT-=dt; flickV=Math.random()<.5?rand(.1,.4):1; if(Math.random()<.3) playTone(2200,1800,.03,.03,'square'); }
+  else flickV=1;
+  // 抓到
+  if(d<0.55) startDeath();
+}
+
+/* ============================== 隨機驚嚇事件 ============================== */
+function updateEvents(dt){
+  eventT-=dt;
+  if(eventT>0||E.mode==='chase'||E.mode==='hunt') return;
+  eventT=rand(16,34);
+  const r=Math.random(), pan=rand(-1,1);
+  if(r<.3) sfx.bang(pan);
+  else if(r<.5){ sfx.drip(pan); setTimeout(()=>sfx.drip(pan*.5),300); setTimeout(()=>sfx.drip(pan),650); }
+  else if(r<.68) sfx.hum(pan);
+  else if(r<.85){ flickT=rand(.3,.7); playNoise(.5,1600,.1,'bandpass'); }
+  else{ playNoise(.7,500,.18,'bandpass',pan); showMsg('……那是腳步聲嗎？',2.2); }
+}
+
+/* ============================== 渲染 ============================== */
+const zbuf=new Float32Array(W);
+function render(dt){
+  const dirX=Math.cos(P.ang), dirY=Math.sin(P.ang);
+  const planeX=-dirY*0.66, planeY=dirX*0.66;
+  const bob=P.moving?Math.sin(P.bob)*3.2:0;
+  const horizon=H/2+bob;
+  const battF=battery>0?(.35+.65*battery/100):0;
+  const fl=flashOn&&battery>0?flickV*battF:0;
+  redPulse=powered?(.5+.5*Math.sin(gameT*4))*.45:0;
+  // 天花板/地板
+  ctx.fillStyle='#040404'; ctx.fillRect(0,0,W,horizon);
+  ctx.fillStyle='#090908'; ctx.fillRect(0,horizon,W,H-horizon);
+  if(powered){ ctx.fillStyle=`rgba(120,18,10,${.05+redPulse*.06})`; ctx.fillRect(0,0,W,H); }
+  // 牆面 raycast
+  for(let x=0;x<W;x++){
+    const camX=2*x/W-1;
+    const rdx=dirX+planeX*camX, rdy=dirY+planeY*camX;
+    let mapX=P.x|0, mapY=P.y|0;
+    const ddx=Math.abs(1/rdx), ddy=Math.abs(1/rdy);
+    let stepX,stepY,sideX,sideY,side=0,tile=1;
+    if(rdx<0){stepX=-1;sideX=(P.x-mapX)*ddx;}else{stepX=1;sideX=(mapX+1-P.x)*ddx;}
+    if(rdy<0){stepY=-1;sideY=(P.y-mapY)*ddy;}else{stepY=1;sideY=(mapY+1-P.y)*ddy;}
+    for(let i=0;i<60;i++){
+      if(sideX<sideY){sideX+=ddx;mapX+=stepX;side=0;}else{sideY+=ddy;mapY+=stepY;side=1;}
+      if(mapX<0||mapY<0||mapX>=MW||mapY>=MH){tile=1;break;}
+      tile=grid[mapY][mapX]; if(tile)break;
+    }
+    const dist=Math.max(side===0?sideX-ddx:sideY-ddy,0.05);
+    zbuf[x]=dist;
+    const lineH=H/dist;
+    let y0=horizon-lineH/2, hgt=lineH;
+    let wallX=side===0?P.y+dist*rdy:P.x+dist*rdx; wallX-=wallX|0;
+    // 光照：手電筒錐形 + 微弱環境光
+    const cone=Math.max(0,1-(camX*camX)/0.5);
+    let light=0.05*Math.max(0,1-dist/8) + fl*cone*3.0/(1+dist*dist*0.42);
+    if(side===1) light*=.76;
+    const seam=(wallX*4)%1; if(seam<.06||seam>.94) light*=.55;
+    const hash=((mapX*73+mapY*131)%17)/17;
+    light*=.88+hash*.22; light=clamp(light,0,1);
+    let r,g,b;
+    if(tile===2){ r=185*light; g=85*light; b=58*light; }      // 逃生門（鏽紅鐵門）
+    else{ r=168*light; g=160*light; b=146*light; }            // 水泥牆
+    if(powered){ r=clamp(r+40*redPulse*light+14*redPulse,0,255); }
+    ctx.fillStyle=`rgb(${r|0},${g|0},${b|0})`;
+    ctx.fillRect(x,y0,1,hgt);
+  }
+  // 地板光暈
+  if(fl>0){
+    const gr=ctx.createRadialGradient(W/2,H*.92,10,W/2,H*.92,W*.42);
+    gr.addColorStop(0,`rgba(255,238,196,${.16*fl})`); gr.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=gr; ctx.fillRect(0,horizon,W,H-horizon);
+  }
+  // 物件 sprites
+  const sprites=[];
+  for(const it of items) if(!it.taken) sprites.push({x:it.x,y:it.y,img:it.type==='fuse'?fuseImg:battImg,kind:'item'});
+  sprites.push({x:E.x,y:E.y,img:entityImg,kind:'entity'});
+  for(const s of sprites) s.d=dist2(P.x,P.y,s.x,s.y);
+  sprites.sort((a,b)=>b.d-a.d);
+  const invDet=1/(planeX*dirY-dirX*planeY);
+  for(const s of sprites){
+    const relX=s.x-P.x, relY=s.y-P.y;
+    const trX=invDet*(dirY*relX-dirX*relY);
+    const trY=invDet*(-planeY*relX+planeX*relY);
+    if(trY<0.08) continue;
+    const sx=(W/2)*(1+trX/trY);
+    const wallH=H/trY;
+    let sh,sw,sy;
+    if(s.kind==='entity'){
+      sh=wallH*.95; sw=sh*.5; sy=horizon+wallH/2-sh;
+      if(s.d<4) sy+=rand(-2,2);
+    }else{
+      sh=wallH*.24; sw=sh; sy=horizon+wallH*.26-sh/2;
+    }
+    let alpha=1, lightS=1;
+    if(s.kind==='entity'){
+      const camXs=trX/trY;
+      const cone=Math.max(0,1-(camXs*camXs)/0.5);
+      lightS=clamp(0.07+fl*cone*3.0/(1+s.d*s.d*.35),0,1);
+      alpha=clamp(lightS*2.6,0,1);
+    }else{
+      alpha=.75+.25*Math.sin(gameT*4+s.x*7);
+    }
+    const x0=Math.max(0,(sx-sw/2)|0), x1=Math.min(W-1,(sx+sw/2)|0);
+    if(x1<x0) continue;
+    ctx.globalAlpha=alpha;
+    const iw=s.img.width;
+    for(let x=x0;x<=x1;x++){
+      if(trY>=zbuf[x]) continue;
+      const u=((x-(sx-sw/2))/sw*iw)|0;
+      ctx.drawImage(s.img,clamp(u,0,iw-1),0,1,s.img.height,x,sy,1,sh);
+    }
+    // 黑暗中的反光眼睛
+    if(s.kind==='entity'&&lightS<.3&&s.d<7&&trY<zbuf[clamp(sx|0,0,W-1)]){
+      ctx.globalAlpha=clamp(1-s.d/7,0,.8);
+      ctx.fillStyle='#cfc6ae';
+      const ey=sy+sh*.20, ew=Math.max(1,sw*.04);
+      ctx.fillRect(sx-sw*.075,ey,ew,ew*1.3); ctx.fillRect(sx+sw*.04,ey,ew,ew*1.3);
+    }
+    ctx.globalAlpha=1;
+  }
+  // 視訊雜訊（黑暗越深越多）+ 它接近時的訊號干擾
+  const grain=.09+.08*(1-fl)+staticLv*.45;
+  ctx.globalAlpha=clamp(grain,0,.65);
+  ctx.drawImage(noiseFrames[(Math.random()*4)|0],0,0,W,H);
+  ctx.globalAlpha=1;
+  if(staticLv>.3){
+    ctx.fillStyle=`rgba(200,200,200,${staticLv*.1})`;
+    for(let i=0;i<3;i++) ctx.fillRect(0,rand(0,H)|0,W,rand(1,3)|0);
+  }
+  // 暗角
+  ctx.drawImage(vignette,0,0);
+  renderHUD();
+}
+function renderHUD(){
+  // REC + 時間戳
+  ctx.font='11px monospace'; ctx.textBaseline='top';
+  if((gameT*1.2|0)%2===0){ ctx.fillStyle='#d33'; ctx.beginPath(); ctx.arc(14,15,4,0,7); ctx.fill(); }
+  ctx.fillStyle='#bfb9aa';
+  const tt=2*3600+17*60+gameT|0;
+  const hh=String((tt/3600|0)).padStart(2,'0'), mm=String((tt/60|0)%60).padStart(2,'0'), ss=String(tt%60|0).padStart(2,'0');
+  ctx.fillText(`REC  AM ${hh}:${mm}:${ss}`,24,10);
+  // 指北針
+  const dirs=['E','S','W','N'];
+  let a=((P.ang%(Math.PI*2))+Math.PI*2)%(Math.PI*2);
+  ctx.fillText(dirs[Math.round(a/(Math.PI/2))%4],W/2-3,10);
+  // 電池
+  ctx.strokeStyle='#8f897d'; ctx.strokeRect(W-66,10,46,12); ctx.strokeRect(W-19,13,3,6);
+  ctx.fillStyle=battery>25?'#9aa78d':'#a8473a';
+  ctx.fillRect(W-64,12,42*battery/100,8);
+  ctx.fillStyle='#8f897d'; ctx.font='10px monospace';
+  ctx.fillText(flashOn?'燈 ON':'燈 OFF',W-66,26);
+  // 體力
+  ctx.fillStyle='rgba(255,255,255,.18)'; ctx.fillRect(W-66,42,46,3);
+  ctx.fillStyle=P.exhausted?'#a8473a':'rgba(255,255,255,.5)';
+  ctx.fillRect(W-66,42,46*P.stamina/100,3);
+  // 保險絲
+  ctx.font='12px "Noto Sans TC",sans-serif'; ctx.fillStyle='#bfb9aa';
+  ctx.fillText(`保險絲 ${fuses}/4`,12,H-22);
+  for(let i=0;i<4;i++){ ctx.fillStyle=i<fuses?'#e8b554':'rgba(255,255,255,.14)'; ctx.fillRect(74+i*11,H-19,7,9); }
+  // 門提示
+  if(P.nearDoor){
+    ctx.fillStyle='#d8d2c2'; ctx.textAlign='center';
+    ctx.fillText(powered?'［E］推開逃生門':'逃生門・電磁鎖（無電力）',W/2,H-44);
+    ctx.textAlign='left';
+  }
+  // 訊息
+  if(msgT>0){
+    ctx.textAlign='center';
+    ctx.fillStyle=`rgba(216,210,194,${clamp(msgT,0,1)})`;
+    ctx.font='13px "Noto Sans TC",sans-serif';
+    ctx.fillText(msg,W/2,H-66);
+    ctx.textAlign='left';
+  }
+}
+function renderDeath(dt){
+  deathT+=dt;
+  const t=clamp(deathT/0.9,0,1);
+  ctx.fillStyle='#000'; ctx.fillRect(0,0,W,H);
+  const sc=(0.5+t*2.8)*H;
+  const jx=rand(-12,12)*t, jy=rand(-12,12)*t;
+  ctx.drawImage(faceImg,W/2-sc/2+jx,H/2-sc/2+jy,sc,sc);
+  if(Math.random()<.4){ ctx.fillStyle=`rgba(160,20,10,${.15+t*.2})`; ctx.fillRect(0,0,W,H); }
+  ctx.globalAlpha=.5; ctx.drawImage(noiseFrames[(Math.random()*4)|0],0,0,W,H); ctx.globalAlpha=1;
+  if(deathT>1.05){
+    state='dead';
+    document.getElementById('deadStats').innerHTML=
+      `存活時間 ${(gameT|0)}秒　・　保險絲 ${fuses}/4<br>最後影像顯示：有什麼東西貼在鏡頭前。`;
+    document.getElementById('dead').classList.add('show');
+    document.exitPointerLock&&document.exitPointerLock();
+  }
+}
+function renderWin(dt){
+  winT+=dt;
+  const t=clamp(winT/1.4,0,1);
+  ctx.fillStyle='#000'; ctx.fillRect(0,0,W,H);
+  ctx.fillStyle=`rgba(225,225,215,${t*.9})`; ctx.fillRect(0,0,W,H);
+  if(winT>1.5){
+    state='won';
+    document.getElementById('winStats').innerHTML=
+      `逃脫耗時 ${(gameT|0)} 秒　・　更換電池 ${battsUsed} 次<br>影片上傳後三天，頻道收到一則留言：<br>「下次來，記得把門關上。」`;
+    document.getElementById('win').classList.add('show');
+    document.exitPointerLock&&document.exitPointerLock();
+  }
+}
+
+/* ============================== 流程控制 ============================== */
+function startDeath(){
+  if(state!=='playing') return;
+  state='dying'; deathT=0; sfx.scream();
+  if(whisperGain) whisperGain.gain.setTargetAtTime(0,AC.currentTime,.05);
+}
+function startWin(){
+  if(state!=='playing') return;
+  state='winning'; winT=0; sfx.door();
+  if(whisperGain) whisperGain.gain.setTargetAtTime(0,AC.currentTime,.05);
+}
+function pauseGame(){
+  if(state!=='playing') return;
+  state='paused';
+  document.getElementById('pause').classList.add('show');
+  if(AC) AC.suspend();
+  document.exitPointerLock&&document.exitPointerLock();
+}
+function resumeGame(){
+  document.getElementById('pause').classList.remove('show');
+  if(AC) AC.resume();
+  state='playing';
+  if(!('ontouchstart' in window)) canvas.requestPointerLock&&canvas.requestPointerLock();
+}
+function startGame(){
+  audioInit(); AC.resume();
+  ['title','dead','win','pause'].forEach(id=>document.getElementById(id).classList.remove('show'));
+  resetGame();
+  state='playing';
+  if(!('ontouchstart' in window)) canvas.requestPointerLock&&canvas.requestPointerLock();
+}
+document.getElementById('btnStart').addEventListener('click',startGame);
+document.getElementById('btnRetry').addEventListener('click',startGame);
+document.getElementById('btnAgain').addEventListener('click',startGame);
+document.getElementById('btnResume').addEventListener('click',resumeGame);
+document.addEventListener('visibilitychange',()=>{ if(document.hidden) pauseGame(); });
+
+/* ============================== 主迴圈 ============================== */
+function makeVignette(){
+  const c=mkCanvas(W,H), g=c.getContext('2d');
+  const gr=g.createRadialGradient(W/2,H/2,H*.32,W/2,H/2,H*.78);
+  gr.addColorStop(0,'rgba(0,0,0,0)'); gr.addColorStop(1,'rgba(0,0,0,.62)');
+  g.fillStyle=gr; g.fillRect(0,0,W,H);
+  return c;
+}
+function fit(){
+  const ar=W/H, ww=window.innerWidth, wh=window.innerHeight;
+  let cw=ww, ch=ww/ar;
+  if(ch>wh){ ch=wh; cw=wh*ar; }
+  canvas.style.width=cw+'px'; canvas.style.height=ch+'px';
+}
+window.addEventListener('resize',fit);
+let lastT=0;
+function loop(ts){
+  requestAnimationFrame(loop);
+  const dt=clamp((ts-lastT)/1000,0,0.05); lastT=ts;
+  if(state==='playing'){
+    gameT+=dt; if(msgT>0) msgT-=dt;
+    updatePlayer(dt);
+    updateEntity(dt);
+    updateEvents(dt);
+    render(dt);
+  }
+  else if(state==='dying') renderDeath(dt);
+  else if(state==='winning') renderWin(dt);
+}
+entityImg=makeEntitySprite(); faceImg=makeFaceSprite();
+fuseImg=makeItemSprite('fuse'); battImg=makeItemSprite('batt');
+noiseFrames=makeNoiseFrames(); vignette=makeVignette();
+parseMap(); fit();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
