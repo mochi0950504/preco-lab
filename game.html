@@ -63,7 +63,8 @@
     <b>Shift</b>　奔跑——腳步聲會引來「它」<br>
     <b>F</b>　手電筒——照得越亮，「它」越容易看見你<br>
     <b>E</b>　互動　　<b>Esc</b>　暫停<br><br>
-    提示：聽到心跳聲，代表它就在附近。關燈、放慢腳步、別出聲。
+    提示：聽到心跳聲，代表它就在附近。關燈、放慢腳步、別出聲。<br>
+    地下室裡散落著前人留下的紙條。讀一讀——然後再想一想。
   </div>
   <div class="warn">⚠ 本遊戲含突發驚嚇畫面與巨大聲響，請戴耳機並調整音量 ⚠</div>
   <button class="go" id="btnStart">開始錄影</button>
@@ -238,6 +239,9 @@ const sfx={
   breath(){ playNoise(.32,750,.12,'bandpass'); },
   hum(pan){ const seq=[440,523.25,493.88,440,415.3]; seq.forEach((f,i)=>playTone(f+rand(-4,4),0,.5,.045,'sine',i*.46,pan)); },
   door(){ playNoise(1.1,120,.5); playTone(310,255,.7,.16,'sawtooth',.15); },
+  ring(vol,pan){ for(let i=0;i<12;i++) playTone(i%2?1480:1680,0,.05,vol*.16,'sine',i*.07,pan); },
+  paper(){ playNoise(.22,3400,.07,'highpass'); },
+  install(){ playTone(110,78,.07,.32,'square'); playNoise(.07,4200,.09,'highpass'); },
   scream(){
     playNoise(1.2,800,.55,'highpass');
     for(const f of [880,1130,1485]) playTone(f,290,1.15,.55,'sawtooth');
@@ -311,6 +315,34 @@ function makeItemSprite(type){
   }
   return c;
 }
+function makeNoteSprite(){
+  const c=mkCanvas(40,40), g=c.getContext('2d');
+  let gr=g.createRadialGradient(20,20,2,20,20,18);
+  gr.addColorStop(0,'rgba(225,218,190,.5)'); gr.addColorStop(1,'rgba(0,0,0,0)');
+  g.fillStyle=gr; g.fillRect(0,0,40,40);
+  g.save(); g.translate(20,24); g.rotate(.18);
+  g.fillStyle='#d6cdaf'; g.fillRect(-9,-11,18,22);
+  g.fillStyle='rgba(70,60,45,.55)';
+  for(let i=0;i<5;i++) g.fillRect(-6,-7+i*4,12,1);
+  g.restore();
+  return c;
+}
+function makePhoneSprite(){
+  const c=mkCanvas(40,40), g=c.getContext('2d');
+  g.fillStyle='#181614'; g.fillRect(10,18,20,14);
+  g.fillStyle='#24211e'; g.fillRect(8,12,24,8);
+  g.fillStyle='#0c0a09'; g.fillRect(11,13,5,5); g.fillRect(24,13,5,5);
+  g.fillStyle='#3a3530'; g.fillRect(16,15,8,3);
+  return c;
+}
+function makeBoxSprite(){
+  const c=mkCanvas(40,40), g=c.getContext('2d');
+  g.fillStyle='#5d5a52'; g.fillRect(6,6,28,30);
+  g.fillStyle='#494640'; g.fillRect(9,12,22,21);
+  for(let i=0;i<5;i++){ g.fillStyle=i%2?'#857b28':'#23211c'; g.fillRect(6+i*6,6,6,4); }
+  g.fillStyle='#7a766c'; g.fillRect(26,20,3,7);
+  return c;
+}
 function makeNoiseFrames(){
   const arr=[];
   for(let k=0;k<4;k++){ const c=mkCanvas(120,75), g=c.getContext('2d');
@@ -324,12 +356,25 @@ function makeNoiseFrames(){
 /* ============================== 遊戲狀態 ============================== */
 const canvas=document.getElementById('view'), ctx=canvas.getContext('2d');
 const W=480, H=300;
-let entityImg, faceImg, fuseImg, battImg, noiseFrames, vignette;
+let entityImg, faceImg, fuseImg, battImg, noteImg, phoneImg, boxImg, noiseFrames, vignette;
 let state='title';
 const P={x:0,y:0,ang:Math.PI,run:false,stamina:100,exhausted:false,bob:0,moving:false,stepT:0,breathT:0};
 const E={x:0,y:0,mode:'roam',path:[],repath:0,speed:1.05,lastSeen:null,seenT:0,target:null,waitT:0,stepT:0,lungeT:0};
 let flashOn=true, battery=100, fuses=0, powered=false, gameT=0, hbT=0, eventT=0, flickT=0, flickV=1;
 let msg='', msgT=0, deathT=0, winT=0, battsUsed=0, interactPulse=false, staticLv=0, redPulse=0;
+/* 互動物件：紙條／電話／配電箱／背後幻影 */
+const NOTE_DEFS=[
+ {x:5.5,y:2.5,text:"值班交接（1998.2.7）\n\nB3 冰櫃溫度正常。\n編號 09 的抽屜又自己滑開了，\n這個月第三次。\n維修科說軌道和鎖都沒壞。\n夜班同仁請多留意。"},
+ {x:5.5,y:8.5,text:"護理紀錄（1998.3.12）\n\n點交時冰櫃又少了一具。\n登記簿是滿的，一格一格數，\n就是少一。學姊說大概是登記錯了。\n可是抽屜，是從裡面打開的。"},
+ {x:17.5,y:5.5,text:"電梯維修單 #441\n\n故障描述：超載警報持續鳴響，\n已切斷 B3 樓層按鈕。\n備註：檢修當下，電梯內無人。\n重量顯示：53 公斤。"},
+ {x:3.5,y:11.5,text:"公告（院內通知）\n\n即日起 B3 夜間巡房一律兩人同行。\n單獨值勤者，請勿回應任何呼喚——\n尤其是叫你名字的那種。\n\n　　　　　　　　　　護理部"},
+ {x:8.5,y:17.5,text:"（像是日記的一頁）\n\n她們都說地下室晚上有腳步聲。\n我聽了三個月，\n今天才聽出哪裡不對。\n那不是腳步聲。\n是有什麼東西，在模仿腳步聲。"},
+ {x:17.5,y:15.5,text:"（字跡潦草，幾乎劃破紙面）\n\n如果你在讀這張紙，幫我數一件事：\n你進來到現在，遇過幾個人？\n正確答案，應該是零。\n那你剛剛，是在跟誰保持距離？"},
+ {x:18.5,y:19.5,text:"（這張紙看起來很新）\n\n別找了。\n最後一顆保險絲在它手上。\n放心，它會還給你的。\n它每次都會。\n它喜歡看你們跑。"}
+];
+let notes=[], phone=null, phantom=null, readingNote=null, rereadScared=false;
+const fusebox={x:22.5,y:2.5};
+let installT=-1, installStep=0, ventDone=false, focusT=0;
 const keys={};
 function showMsg(t,d=3.2){ msg=t; msgT=d; }
 function resetGame(){
@@ -340,6 +385,10 @@ function resetGame(){
   E.lastSeen=null; E.seenT=0; E.target=null; E.waitT=0; E.lungeT=0;
   flashOn=true; battery=100; fuses=0; powered=false; gameT=0; hbT=0; eventT=rand(14,24);
   flickT=0; flickV=1; msg=''; msgT=0; deathT=0; winT=0; battsUsed=0; staticLv=0;
+  notes=NOTE_DEFS.map(n=>({...n,read:false,reread:false}));
+  phone={x:11.5,y:12.5,ringing:false,answered:false,done:false,ringT:0,rings:0,silentT:-1};
+  phantom=null; readingNote=null; rereadScared=false;
+  installT=-1; installStep=0; ventDone=false; focusT=0;
   if(humGain) humGain.gain.setTargetAtTime(0,AC.currentTime,.1);
   showMsg('找到 4 顆保險絲，恢復供電。（F：手電筒）',5);
 }
@@ -445,7 +494,7 @@ function updatePlayer(dt){
         fuses++; sfx.fuse();
         if(fuses<4) showMsg(`撿到保險絲（${fuses}/4）`,3);
         if(fuses===2){ scareTeleport(); }
-        if(fuses===4) powerOn();
+        if(fuses===4) showMsg('最後一顆——放在路中央，像是特意留給你的。回配電箱裝上。',5);
       }else{
         battery=clamp(battery+55,0,100); battsUsed++; sfx.battery();
         showMsg('換上新電池。',2.5);
@@ -454,12 +503,39 @@ function updatePlayer(dt){
   }
   // 手電筒耗電
   if(flashOn&&battery>0){ battery-=dt*(100/140); if(battery<=0){ battery=0; showMsg('……手電筒沒電了。',3); } }
-  // 出口互動
-  const dDoor=dist2(P.x,P.y,doorPos.x+.5,doorPos.y+.5);
-  P.nearDoor=dDoor<1.8;
-  if(P.nearDoor&&interactPulse){
-    if(powered){ startWin(); }
-    else showMsg(`逃生門被電磁鎖鎖死。配電箱還缺 ${4-fuses} 顆保險絲。`,3.2);
+  // 互動提示偵測（優先序：紙條 > 電話 > 配電箱 > 逃生門）
+  P.prompt=null;
+  for(let i=0;i<notes.length;i++){
+    if(dist2(P.x,P.y,notes[i].x,notes[i].y)<0.95){ P.prompt={type:'note',i}; break; }
+  }
+  if(!P.prompt&&phone&&!phone.done&&phone.ringing&&dist2(P.x,P.y,phone.x,phone.y)<1.15)
+    P.prompt={type:'phone'};
+  if(!P.prompt&&!powered&&dist2(P.x,P.y,fusebox.x,fusebox.y)<1.4)
+    P.prompt={type:'box'};
+  P.nearDoor=dist2(P.x,P.y,doorPos.x+.5,doorPos.y+.5)<1.8;
+  if(!P.prompt&&P.nearDoor) P.prompt={type:'door'};
+  // 移動會中斷閱讀與安裝
+  if(P.moving&&readingNote!==null) readingNote=null;
+  if(P.moving&&installT>=0){ installT=-1; installStep=0; showMsg('安裝中斷了。',2); }
+  if(interactPulse){
+    if(readingNote!==null){ readingNote=null; }
+    else if(P.prompt){
+      const pr=P.prompt;
+      if(pr.type==='note'){
+        const n=notes[pr.i];
+        if(n.read&&!rereadScared){ rereadScared=true; n.reread=true; playNoise(.5,2400,.12,'bandpass'); }
+        n.read=true; readingNote=pr.i; sfx.paper();
+      }
+      else if(pr.type==='phone') answerPhone();
+      else if(pr.type==='box'){
+        if(fuses>=4&&installT<0){ installT=0; installStep=0; }
+        else if(fuses<4) showMsg(`配電箱裡空蕩蕩的。還缺 ${4-fuses} 顆保險絲。`,3);
+      }
+      else if(pr.type==='door'){
+        if(powered) startWin();
+        else showMsg('逃生門被電磁鎖鎖死。先讓旁邊的配電箱恢復供電。',3.2);
+      }
+    }
   }
   interactPulse=false;
 }
@@ -472,8 +548,71 @@ function scareTeleport(){
   playNoise(.8,1800,.22,'bandpass'); playTone(220,180,.9,.1,'sine');
   showMsg('……背後好像有什麼東西動了。',3);
 }
+function answerPhone(){
+  phone.answered=true; phone.ringing=false; phone.done=true;
+  playNoise(1.6,1900,.14,'bandpass');
+  showMsg('（聽筒裡只有雜訊，和很慢、很慢的呼吸聲。）',3);
+  setTimeout(()=>{ if(state==='playing'){ playNoise(1.2,1100,.1,'bandpass'); showMsg('「……不要……回頭……」',2.8); } },3000);
+  setTimeout(()=>{ if(state==='playing') spawnPhantom(); },4600);
+}
+function spawnPhantom(){
+  if(phantom) return;
+  const bx=-Math.cos(P.ang), by=-Math.sin(P.ang);
+  for(const d of [3.2,2.6,2.0,3.8]){
+    const x=P.x+bx*d, y=P.y+by*d;
+    if(!solid(x,y)&&los(x,y,P.x,P.y)){ phantom={x,y,t:0,seenT:0}; return; }
+  }
+}
+function updateExtras(dt){
+  if(focusT>0) focusT-=dt;
+  // 開場：來路被封
+  if(!ventDone&&gameT>25){ ventDone=true; sfx.bang(rand(-.4,.4)); showMsg('……通風管的蓋子掉了。還是，被蓋上了？',3.5); }
+  // 走廊深處的電話
+  if(phone&&!phone.done&&!powered){
+    if(!phone.answered&&!phone.ringing&&phone.rings===0&&gameT>55){ phone.ringing=true; phone.ringT=0; }
+    if(phone.ringing){
+      phone.ringT-=dt;
+      if(phone.ringT<=0){
+        phone.rings++; const d=dist2(P.x,P.y,phone.x,phone.y);
+        const rel=Math.atan2(phone.y-P.y,phone.x-P.x)-P.ang;
+        sfx.ring(clamp(1-d/16,0,1)*.5, Math.sin(rel));
+        phone.ringT=3;
+        if(phone.rings>=8){ phone.ringing=false; phone.silentT=20; }
+      }
+    }
+    if(phone.silentT>0){
+      phone.silentT-=dt;
+      if(phone.silentT<=0){ phone.done=true;
+        showMsg('電話安靜了。你忽然想起來——這裡的電話線，三十年前就剪斷了。',4.5); }
+    }
+  }
+  // 背後的幻影：轉身才看得見
+  if(phantom){
+    phantom.t+=dt;
+    let dA=Math.atan2(phantom.y-P.y,phantom.x-P.x)-P.ang;
+    while(dA>Math.PI)dA-=Math.PI*2; while(dA<-Math.PI)dA+=Math.PI*2;
+    if(Math.abs(dA)<0.55&&los(phantom.x,phantom.y,P.x,P.y)){
+      phantom.seenT+=dt;
+      if(phantom.seenT>0.3){
+        phantom=null; flickT=.3; playNoise(.4,2600,.3,'highpass'); playTone(70,45,.5,.35,'square');
+        showMsg('……剛剛那裡，是不是站著什麼？',3.2);
+      }
+    }else if(phantom.t>12){
+      phantom=null; playNoise(.4,420,.1,'lowpass');
+      showMsg('你身後的呼吸聲停了。……它是什麼時候開始的？',4);
+    }
+  }
+  // 配電箱安裝序列：站著不動，一顆一顆裝
+  if(installT>=0){
+    installT+=dt;
+    const step=Math.min(4,1+(installT/0.5|0));
+    if(step>installStep){ installStep=step; sfx.install(); showMsg(`裝上保險絲（${step}/4）`,1.2); }
+    if(installT>2.3){ installT=-1; powerOn(); }
+  }
+}
 function powerOn(){
   powered=true; sfx.roar();
+  if(phone) phone.done=true;
   if(humGain) humGain.gain.setTargetAtTime(.013,AC.currentTime,.3);
   showMsg('電力恢復。逃生門解鎖了——快逃！！',5);
   // 它從深處出現，進入永久追獵
@@ -563,8 +702,10 @@ function updateEvents(dt){
   if(r<.3) sfx.bang(pan);
   else if(r<.5){ sfx.drip(pan); setTimeout(()=>sfx.drip(pan*.5),300); setTimeout(()=>sfx.drip(pan),650); }
   else if(r<.68) sfx.hum(pan);
-  else if(r<.85){ flickT=rand(.3,.7); playNoise(.5,1600,.1,'bandpass'); }
-  else{ playNoise(.7,500,.18,'bandpass',pan); showMsg('……那是腳步聲嗎？',2.2); }
+  else if(r<.8){ flickT=rand(.3,.7); playNoise(.5,1600,.1,'bandpass'); }
+  else if(r<.9){ playNoise(.7,500,.18,'bandpass',pan); showMsg('……那是腳步聲嗎？',2.2); }
+  else if(gameT>80&&!phantom){ spawnPhantom(); }
+  else{ focusT=.7; playTone(900,1240,.07,.05,'square'); playTone(900,1240,.07,.05,'square',.12); }
 }
 
 /* ============================== 渲染 ============================== */
@@ -623,6 +764,10 @@ function render(dt){
   // 物件 sprites
   const sprites=[];
   for(const it of items) if(!it.taken) sprites.push({x:it.x,y:it.y,img:it.type==='fuse'?fuseImg:battImg,kind:'item'});
+  for(const n of notes) sprites.push({x:n.x,y:n.y,img:noteImg,kind:'note'});
+  if(phone) sprites.push({x:phone.x,y:phone.y,img:phoneImg,kind:phone.ringing?'item':'prop'});
+  sprites.push({x:fusebox.x,y:fusebox.y,img:boxImg,kind:'prop'});
+  if(phantom) sprites.push({x:phantom.x,y:phantom.y,img:entityImg,kind:'phantom'});
   sprites.push({x:E.x,y:E.y,img:entityImg,kind:'entity'});
   for(const s of sprites) s.d=dist2(P.x,P.y,s.x,s.y);
   sprites.sort((a,b)=>b.d-a.d);
@@ -635,21 +780,24 @@ function render(dt){
     const sx=(W/2)*(1+trX/trY);
     const wallH=H/trY;
     let sh,sw,sy;
-    if(s.kind==='entity'){
+    if(s.kind==='entity'||s.kind==='phantom'){
       sh=wallH*.95; sw=sh*.5; sy=horizon+wallH/2-sh;
-      if(s.d<4) sy+=rand(-2,2);
+      if(s.kind==='entity'&&s.d<4) sy+=rand(-2,2);
+    }else if(s.kind==='prop'){
+      sh=wallH*.42; sw=sh; sy=horizon+wallH/2-sh;
+    }else if(s.kind==='note'){
+      sh=wallH*.18; sw=sh; sy=horizon+wallH*.34-sh/2;
     }else{
       sh=wallH*.24; sw=sh; sy=horizon+wallH*.26-sh/2;
     }
-    let alpha=1, lightS=1;
-    if(s.kind==='entity'){
-      const camXs=trX/trY;
-      const cone=Math.max(0,1-(camXs*camXs)/0.5);
-      lightS=clamp(0.07+fl*cone*3.0/(1+s.d*s.d*.35),0,1);
-      alpha=clamp(lightS*2.6,0,1);
-    }else{
-      alpha=.75+.25*Math.sin(gameT*4+s.x*7);
-    }
+    const camXs=trX/trY, coneS=Math.max(0,1-(camXs*camXs)/0.5);
+    const lightS=clamp(0.07+fl*coneS*3.0/(1+s.d*s.d*.35),0,1);
+    let alpha=1;
+    if(s.kind==='entity') alpha=clamp(lightS*2.6,0,1);
+    else if(s.kind==='phantom') alpha=clamp(lightS*2.2,0,.8);
+    else if(s.kind==='prop') alpha=clamp(lightS*3,0,1);
+    else if(s.kind==='note') alpha=clamp(.25+lightS*2.5,0,1)*(.8+.2*Math.sin(gameT*3+s.x*5));
+    else alpha=.75+.25*Math.sin(gameT*4+s.x*7);
     const x0=Math.max(0,(sx-sw/2)|0), x1=Math.min(W-1,(sx+sw/2)|0);
     if(x1<x0) continue;
     ctx.globalAlpha=alpha;
@@ -660,7 +808,7 @@ function render(dt){
       ctx.drawImage(s.img,clamp(u,0,iw-1),0,1,s.img.height,x,sy,1,sh);
     }
     // 黑暗中的反光眼睛
-    if(s.kind==='entity'&&lightS<.3&&s.d<7&&trY<zbuf[clamp(sx|0,0,W-1)]){
+    if((s.kind==='entity'||s.kind==='phantom')&&lightS<.3&&s.d<7&&trY<zbuf[clamp(sx|0,0,W-1)]){
       ctx.globalAlpha=clamp(1-s.d/7,0,.8);
       ctx.fillStyle='#cfc6ae';
       const ey=sy+sh*.20, ew=Math.max(1,sw*.04);
@@ -669,7 +817,7 @@ function render(dt){
     ctx.globalAlpha=1;
   }
   // 視訊雜訊（黑暗越深越多）+ 它接近時的訊號干擾
-  const grain=.09+.08*(1-fl)+staticLv*.45;
+  const grain=.09+.08*(1-fl)+staticLv*.45+(focusT>0?.33:0);
   ctx.globalAlpha=clamp(grain,0,.65);
   ctx.drawImage(noiseFrames[(Math.random()*4)|0],0,0,W,H);
   ctx.globalAlpha=1;
@@ -680,6 +828,22 @@ function render(dt){
   // 暗角
   ctx.drawImage(vignette,0,0);
   renderHUD();
+  if(readingNote!==null) renderNoteUI();
+}
+function renderNoteUI(){
+  const n=notes[readingNote];
+  ctx.fillStyle='rgba(0,0,0,.55)'; ctx.fillRect(0,0,W,H);
+  const pw=320, lines=n.text.split('\n');
+  const ph=58+lines.length*17+(n.reread?22:0);
+  const px=(W-pw)/2, py=(H-ph)/2;
+  ctx.fillStyle='rgba(0,0,0,.5)'; ctx.fillRect(px+5,py+6,pw,ph);
+  ctx.fillStyle='#cfc4a4'; ctx.fillRect(px,py,pw,ph);
+  ctx.fillStyle='rgba(96,78,46,.3)'; ctx.fillRect(px,py,pw,5);
+  ctx.font='12px "Noto Sans TC",sans-serif'; ctx.fillStyle='#3a3226';
+  lines.forEach((l,i)=>ctx.fillText(l,px+18,py+14+i*17));
+  if(n.reread){ ctx.fillStyle='#8a1f15';
+    ctx.fillText('（背面多了一行剛寫上去的字：你已經讀過一遍了。）',px+18,py+ph-40); }
+  ctx.fillStyle='#6b6051'; ctx.fillText('［E］放下',px+pw-72,py+ph-20);
 }
 function renderHUD(){
   // REC + 時間戳
@@ -703,15 +867,21 @@ function renderHUD(){
   ctx.fillStyle='rgba(255,255,255,.18)'; ctx.fillRect(W-66,42,46,3);
   ctx.fillStyle=P.exhausted?'#a8473a':'rgba(255,255,255,.5)';
   ctx.fillRect(W-66,42,46*P.stamina/100,3);
-  // 保險絲
+  // 保險絲與目標
   ctx.font='12px "Noto Sans TC",sans-serif'; ctx.fillStyle='#bfb9aa';
   ctx.fillText(`保險絲 ${fuses}/4`,12,H-22);
   for(let i=0;i<4;i++){ ctx.fillStyle=i<fuses?'#e8b554':'rgba(255,255,255,.14)'; ctx.fillRect(74+i*11,H-19,7,9); }
-  // 門提示
-  if(P.nearDoor){
-    ctx.fillStyle='#d8d2c2'; ctx.textAlign='center';
-    ctx.fillText(powered?'［E］推開逃生門':'逃生門・電磁鎖（無電力）',W/2,H-44);
-    ctx.textAlign='left';
+  ctx.font='10px "Noto Sans TC",sans-serif'; ctx.fillStyle='#6e6a60';
+  ctx.fillText(powered?'目標：逃出去！！':(fuses>=4?'目標：回到出口旁的配電箱':'目標：搜索保險絲'),12,H-38);
+  // 互動提示
+  if(P.prompt&&readingNote===null){
+    let txt='';
+    if(P.prompt.type==='note') txt=notes[P.prompt.i].read?'［E］再看一次紙條':'［E］撿起紙條';
+    else if(P.prompt.type==='phone') txt='［E］接起電話';
+    else if(P.prompt.type==='box') txt=fuses>=4?(installT>=0?'安裝中……站著別動':'［E］裝上保險絲'):'配電箱（缺保險絲）';
+    else if(P.prompt.type==='door') txt=powered?'［E］推開逃生門':'逃生門・電磁鎖（無電力）';
+    if(txt){ ctx.font='12px "Noto Sans TC",sans-serif'; ctx.fillStyle='#d8d2c2';
+      ctx.textAlign='center'; ctx.fillText(txt,W/2,H-44); ctx.textAlign='left'; }
   }
   // 訊息
   if(msgT>0){
@@ -756,7 +926,7 @@ function renderWin(dt){
 /* ============================== 流程控制 ============================== */
 function startDeath(){
   if(state!=='playing') return;
-  state='dying'; deathT=0; sfx.scream();
+  state='dying'; deathT=0; readingNote=null; sfx.scream();
   if(whisperGain) whisperGain.gain.setTargetAtTime(0,AC.currentTime,.05);
 }
 function startWin(){
@@ -814,6 +984,7 @@ function loop(ts){
     updatePlayer(dt);
     updateEntity(dt);
     updateEvents(dt);
+    updateExtras(dt);
     render(dt);
   }
   else if(state==='dying') renderDeath(dt);
@@ -821,6 +992,7 @@ function loop(ts){
 }
 entityImg=makeEntitySprite(); faceImg=makeFaceSprite();
 fuseImg=makeItemSprite('fuse'); battImg=makeItemSprite('batt');
+noteImg=makeNoteSprite(); phoneImg=makePhoneSprite(); boxImg=makeBoxSprite();
 noiseFrames=makeNoiseFrames(); vignette=makeVignette();
 parseMap(); fit();
 requestAnimationFrame(loop);
