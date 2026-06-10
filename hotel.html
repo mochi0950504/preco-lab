@@ -50,7 +50,7 @@
 
 <div class="overlay show" id="title">
   <h1>十樓的她</h1>
-  <h2>維多利亞大飯店・1972－2026</h2>
+  <h2>《地下三樓》續作・維多利亞大飯店・1972－2026</h2>
   <div class="story">1972 年，維多利亞大飯店是城裡最豪華的地方。
 也是那一年，十九歲的房務員林秀蘭，從十樓墜落。
 飯店說她偷了住客的珠寶，畏罪自殺。隔年，飯店倒閉，封樓至今。
@@ -61,7 +61,9 @@
 
 她會出現。在牆上、在天花板、在你背後、在你想不到的地方。
 但記住一件事：她從來沒有傷過任何人。
-連最後那一晚都沒有。</div>
+連最後那一晚都沒有。
+
+（你手上這台攝影機，上一次開機，是在同仁醫院的地下三樓。）</div>
   <div class="controls">
     <b>WASD／方向鍵</b>　移動　　<b>滑鼠</b>　視角（點畫面鎖定）　　<b>Shift</b>　快走<br>
     <b>F</b>　手電筒　　<b>E</b>　互動／閱讀　　<b>Esc</b>　暫停　　<b>Enter</b>　跳過開場動畫<br><br>
@@ -329,6 +331,8 @@ function drawGhostHead(g,x,y,s,tilt,grin){
   g.fillStyle='#0a0608'; g.beginPath(); g.arc(-6*tilt,-4,6,0,7); g.fill();
   g.strokeStyle='#332c28'; g.lineWidth=1.5; g.beginPath(); g.arc(-6*tilt,-4,3.6,0,7); g.stroke();
   g.fillStyle='#e6e0d0'; g.fillRect(-6*tilt-1,-5.5,2,2);
+  g.strokeStyle='rgba(20,14,14,.8)'; g.lineWidth=1.6;
+  g.beginPath(); g.moveTo(-6*tilt-6,-12); g.quadraticCurveTo(-6*tilt,-16,-6*tilt+6,-11); g.stroke();
   g.restore();
 }
 function drawHairFall(g,x,y,len,n,spread){
@@ -373,9 +377,9 @@ function poseStand(){
   g.beginPath(); g.moveTo(cx-32,134); g.lineTo(cx+32,134); g.lineTo(cx+28,190);
   for(let x=cx+28;x>=cx-28;x-=10) g.lineTo(x,190+((x*5)%13)-6);
   g.closePath(); g.fill();
-  g.fillStyle='rgba(220,215,200,.55)';
-  g.beginPath(); g.moveTo(cx-20,200); g.lineTo(cx+20,200); g.lineTo(cx+16,268);
-  for(let x=cx+16;x>=cx-16;x-=8) g.lineTo(x,268+((x*7)%11)-5);
+  g.fillStyle='#5e594f';
+  g.beginPath(); g.moveTo(cx-24,256); g.lineTo(cx+24,256); g.lineTo(cx+24,290);
+  for(let x=cx+24;x>=cx-24;x-=8) g.lineTo(x,290+((x*3)%9)-4);
   g.closePath(); g.fill();
   g.strokeStyle='#a9a294'; g.lineWidth=10;
   g.beginPath(); g.moveTo(cx-28,148); g.quadraticCurveTo(cx-52,220,cx-48,316); g.stroke();
@@ -805,13 +809,36 @@ const sfx={
   tvOn(){ if(tvGain) tvGain.gain.setTargetAtTime(.16,AC.currentTime,.08); },
   tvOff(){ if(tvGain) tvGain.gain.setTargetAtTime(0,AC.currentTime,.05); }
 };
-let ttsOK=false;
+let ttsVoice=null, ttsTried=false;
+function pickVoice(){
+  try{
+    if(typeof speechSynthesis==='undefined') return;
+    const vs=speechSynthesis.getVoices()||[];
+    const zh=vs.filter(v=>/^zh|^cmn/i.test(v.lang)||/中文|國語|台灣|普通话/.test(v.name));
+    if(!zh.length) return;
+    const score=v=>
+      (/natural|neural|online|premium|enhanced/i.test(v.name)?8:0)+
+      (/zh[-_]TW/i.test(v.lang)?4:0)+
+      (/TW|台灣|HsiaoChen|HsiaoYu|HanHan|Yating|Mei.?Jia/i.test(v.name)?3:0)+
+      (/google/i.test(v.name)?2:0)+
+      (v.localService?0:1);
+    zh.sort((q,w)=>score(w)-score(q));
+    ttsVoice=zh[0];
+  }catch(e){}
+}
 function narrateTTS(text){
   try{
     if(typeof speechSynthesis==='undefined') return;
-    const u=new SpeechSynthesisUtterance(text.replace(/[「」『』——]/g,''));
-    u.lang='zh-TW'; u.rate=.82; u.pitch=.72; u.volume=.85;
-    speechSynthesis.speak(u); ttsOK=true;
+    if(!ttsTried){
+      ttsTried=true; pickVoice();
+      speechSynthesis.onvoiceschanged=()=>pickVoice();
+    }
+    if(!ttsVoice) pickVoice();
+    if(!ttsVoice) return; // 沒有中文語音時只出字幕，避免機器腔
+    const u=new SpeechSynthesisUtterance(text.replace(/[「」『』]/g,'').replace(/——/g,'，'));
+    u.lang=ttsVoice.lang||'zh-TW'; u.voice=ttsVoice;
+    u.rate=.88; u.pitch=.95; u.volume=.9;
+    speechSynthesis.speak(u);
   }catch(e){}
 }
 function stopTTS(){ try{ if(typeof speechSynthesis!=='undefined') speechSynthesis.cancel(); }catch(e){} }
@@ -821,6 +848,7 @@ function stopTTS(){ try{ if(typeof speechSynthesis!=='undefined') speechSynthesi
 let scene,camera,renderer,fxC,fxg;
 let flash,flashTgt,amb,pool=[],roomLights=[],warmLight,chandLight;
 let exteriorG,lobbyG,floorsG={},ghostWindow,signLit;
+let winFlicker=null,cineDoorsG=null,cineDoorL=null,cineDoorR=null,cineCabG=null,cineInd=null,cineIndTex=null,cineLight=null;
 const COL={}, STAIRZ=[], INTER=[], SCONCES={}, ELEV={};
 let room1013={built:false,spawned:false,group:null,wallMesh:null,doorMesh:null,wallCol:null,doorCol:null};
 let DUST=null, TX={}, MAT={};
@@ -1220,6 +1248,22 @@ function buildExterior(){
   }
   box(G,MAT.dark,0,4.6,7.7,9.6,.6,3.4,{col:false});
   for(let i=0;i<3;i++) box(G,new THREE.MeshLambertMaterial({color:0x3a3833}),0,.12+i*.16,9.8-i*.5,10-i*1.2,.16,.8,{col:false});
+  box(G,MAT.dark,0,2.15,6.54,3.2,4.3,.16,{col:false});
+  const doorMatE=new THREE.MeshLambertMaterial({map:new THREE.CanvasTexture(makeDoor(''))});
+  for(const dx of [-.62,.62]){
+    const dpn=new THREE.Mesh(new THREE.BoxGeometry(1.18,3.1,.12),doorMatE);
+    dpn.position.set(dx,1.55,6.62); G.add(dpn);
+  }
+  box(G,MAT.brass,-.14,1.5,6.72,.07,.34,.05,{col:false});
+  box(G,MAT.brass,.14,1.5,6.72,.07,.34,.05,{col:false});
+  winFlicker=new THREE.Group(); winFlicker.visible=false; G.add(winFlicker);
+  const wfMat=new THREE.MeshBasicMaterial({color:0xc8a96e});
+  for(let r=0;r<NF;r++) for(let c2=0;c2<10;c2++){
+    const wp=new THREE.Mesh(new THREE.PlaneGeometry(1.24,1.85),wfMat);
+    wp.position.set((((c2+.5)/10)-.5)*35.2,r*3.4+1.72,6.63);
+    wp.visible=false;
+    winFlicker.add(wp);
+  }
   const signD=plane(G,new THREE.MeshBasicMaterial({map:TX.signD}),8,1.5,0,5.6,6.7,0);
   signLit=plane(G,new THREE.MeshBasicMaterial({map:TX.signL,transparent:true,opacity:0}),8,1.5,0,5.6,6.72,0);
   const moon=plane(G,new THREE.MeshBasicMaterial({color:0xcfd4e2}),9,9,-70,46,-110,0);
@@ -1242,7 +1286,37 @@ function buildAll(){
   buildPoses(); buildMaterials();
   buildExterior(); buildLobby();
   for(let n=2;n<=NF;n++) buildFloor(n);
-  build1013();
+  build1013(); buildCineProps();
+}
+function buildCineProps(){
+  const base=(NF-1)*FH;
+  cineDoorsG=new THREE.Group(); cineDoorsG.visible=false; scene.add(cineDoorsG);
+  cineDoorL=new THREE.Mesh(new THREE.BoxGeometry(.06,2.4,1.1),MAT.metal);
+  cineDoorL.position.set(-12.15,base+1.2,-.55); cineDoorsG.add(cineDoorL);
+  cineDoorR=new THREE.Mesh(new THREE.BoxGeometry(.06,2.4,1.1),MAT.metal);
+  cineDoorR.position.set(-12.15,base+1.2,.55); cineDoorsG.add(cineDoorR);
+  cineCabG=new THREE.Group(); cineCabG.visible=false; scene.add(cineCabG);
+  plane(cineCabG,MAT.dark,1.7,2.7,0,1.35,2.62,Math.PI);
+  plane(cineCabG,MAT.dark,1.5,2.7,-.84,1.35,1.9,Math.PI/2);
+  plane(cineCabG,MAT.dark,1.5,2.7,.84,1.35,1.9,-Math.PI/2);
+  plane(cineCabG,MAT.metal,1.7,2.7,0,1.35,1.16,0);
+  plane(cineCabG,MAT.dark,1.7,1.5,0,2.72,1.9,0,Math.PI/2);
+  plane(cineCabG,MAT.dark,1.7,1.5,0,.02,1.9,0,-Math.PI/2);
+  plane(cineCabG,MAT.sconceOn(),.4,.26,0,2.7,1.9,0,Math.PI/2);
+  cineIndTex=mkCanvas(96,48);
+  cineInd=new THREE.Mesh(new THREE.PlaneGeometry(.5,.25),
+    new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(cineIndTex)}));
+  cineInd.position.set(0,2.42,1.2); cineInd.visible=false; scene.add(cineInd);
+  cineLight=new THREE.PointLight(0xffe8c0,0,4.5);
+  cineLight.position.set(0,2.55,1.9); scene.add(cineLight);
+}
+function setInd(txt,flash){
+  const g=cineIndTex.getContext('2d');
+  g.fillStyle='#0c0a08'; g.fillRect(0,0,96,48);
+  g.fillStyle=flash?'#ff5030':'#d8a050';
+  g.font='30px monospace'; g.textAlign='center'; g.textBaseline='middle';
+  g.fillText(txt,48,26);
+  cineInd.material.map.needsUpdate=true;
 }
 /* ---- 地面高度與碰撞 ---- */
 function groundAt(x,z,lvlGuess,curY){
@@ -1716,47 +1790,130 @@ director.pick=function(){
 /* ---- 電影開場 ---- */
 const NARR=[
  '1972 年，維多利亞大飯店，是這座城裡最豪華的地方。',
- '也是在那一年，十九歲的房務員——林秀蘭，從十樓墜落。',
- '飯店說，她偷了住客的珠寶，畏罪自殺。三天，結案。',
- '但老員工都記得：失竊那一晚，是經理親自把她調去十樓加班。',
- '沒有人聽她解釋。一句都沒有。',
+ '也是在那一年，十九歲的房務員，林秀蘭，從十樓墜落。',
+ '飯店說，她偷了住客的珠寶，畏罪自殺。三天，就結了案。',
+ '但老員工都記得，失竊那一晚，是經理親自把她調去十樓加班。',
+ '沒有人聽她解釋。一句，都沒有。',
  '隔年，飯店倒閉。大門焊死，封樓至今。',
- '他們說，十樓走廊的燈，每天晚上都會自己亮起來。',
+ '他們說，十樓走廊的燈，每天晚上，都會自己亮起來。',
  '五十年了。她還在十樓，等一個願意把真相找出來的人。',
- '今晚——是你。'
+ '今晚，是你。'
 ];
 function camLerp(t,p0,p1,l0,l1){
   const e=sstep(t);
   camera.position.set(lerp(p0[0],p1[0],e),lerp(p0[1],p1[1],e),lerp(p0[2],p1[2],e));
   camera.lookAt(lerp(l0[0],l1[0],e),lerp(l0[1],l1[1],e),lerp(l0[2],l1[2],e));
 }
-function corridorShot(lvl,narrIdx){
-  const base=(lvl-1)*FH;
-  return {dur:6,env:'int',lvl,sub:NARR[narrIdx],label:lvl+'F',
-    cam(t){ camLerp(t,[-11,base+1.62,0],[1.5,base+1.62,0],[12,base+1.4,0],[12,base+1.4,0]); }};
-}
 const SHOTS=[
+ /* S1 遠景全飯店 */
  {dur:10,env:'ext',sub:NARR[0],cam(t){ camLerp(t,[58,30,76],[36,18,48],[0,13,0],[0,13,0]); }},
- {dur:8,env:'ext',sub:NARR[1],cam(t){ camLerp(t,[0,1.8,42],[0,2.2,12.5],[0,4.6,6.6],[0,4.2,6.6]); },
+ /* S2 推進大門 */
+ {dur:8,env:'ext',sub:NARR[1],cam(t){ camLerp(t,[0,1.8,42],[0,1.9,9.6],[0,3.6,6.6],[0,2.3,6.6]); },
   tick(t){ if(signLit) signLit.material.opacity=(Math.sin(t*13)>.4||Math.random()<.04)?.85:.06; }},
+ /* S3 大廳櫃台 */
  {dur:8,env:'int',lvl:1,sub:NARR[2],cam(t){ camLerp(t,[0,1.7,4.8],[0,1.5,-1.4],[0,1.1,-3.4],[0,1.1,-3.4]); },
   onStart(){ chandLight.intensity=.14; }},
- corridorShot(2,3), corridorShot(4,4), corridorShot(6,5), corridorShot(8,6),
- {dur:8,env:'int',lvl:NF,sub:NARR[7],
-  onStart(){
-    const base=(NF-1)*FH;
-    ghostShow('stand',1.05,2.1,10.5,base+1.05,0);
-    ghost.mat.opacity=.85;
+ /* S4 走進電梯 */
+ {dur:7,env:'int',lvl:1,sub:NARR[3],
+  onStart(){ cineCabG.visible=true; cineInd.visible=true; setInd('1'); cineLight.intensity=.45; },
+  cam(t){ camLerp(t,[0,1.62,-1.6],[0,1.62,1.95],[0,1.55,1.9],[0,1.7,2.6]); },
+  tick(t){
+    if(t>.18&&!this._d){ this._d=1; sfx.ding(); ELEV[1].target=1; }
+    if(t>.86&&!this._c){ this._c=1; ELEV[1].target=0; sfx.slam(0); }
   },
-  cam(t){ const base=(NF-1)*FH;
-    camLerp(t,[-12.3,base+1.62,0],[-7.2,base+1.62,0],[13,base+1.4,0],[13,base+1.4,0]);
-    ghostFaceCam();
-    if(t>.55&&t<.6) flickT=.2;
-    if(t>.82&&!this._j){ this._j=1; ghost.mesh.position.x=7; staticLv=.6; sfx.skitter(0,.2); }
+  onEnd(){ ELEV[1].target=0; }},
+ /* S5 電梯緩慢上升：燈光昏暗閃爍 */
+ {dur:14,env:'int',lvl:1,sub:NARR[4],
+  cam(t){
+    camera.position.set(Math.sin(cine.t*7)*.008,1.62+Math.sin(cine.t*9)*.006,2.05);
+    camera.lookAt(0,1.5,1.0);
+  },
+  tick(t){
+    const fl=Math.min(9,Math.floor(1+t*9.4));
+    if(fl!==this._f){ this._f=fl; setInd(String(fl)); playNoise(.18,160,.06,'lowpass'); }
+    cineLight.intensity=(Math.random()<.07?rand(.04,.18):.42)+rand(-.04,.04);
+    if(!this._rT||cine.t>this._rT){ this._rT=cine.t+.5; playNoise(.55,90,.05,'lowpass',0,0,.6); }
+    if(t>.5&&!this._n2){ this._n2=1; cine.sub=NARR[5]; cine.subT=4.5; narrateTTS(NARR[5]); }
+    if(Math.random()<.015) sfx.creak(rand(-1,1));
   }},
- {dur:10,env:'ext',sub:NARR[8],
-  onStart(){ ghostHide(); if(ghostWindow) ghostWindow.visible=true; },
-  cam(t){ camLerp(t,[10,6,26],[46,24,66],[0,15,0],[0,15,0]); }}
+ /* S6 叮——十樓開門：她在遠處，每次閃爍就更近 */
+ {dur:16,env:'int',lvl:NF,sub:NARR[6],
+  onStart(){
+    cineCabG.visible=false; cineInd.visible=false; cineLight.intensity=0;
+    cineDoorsG.visible=true;
+    cineDoorL.position.z=-.55; cineDoorR.position.z=.55;
+    sfx.ding();
+    const base=(NF-1)*FH;
+    ghostShow('stand',1.05,2.1,11,base+1.05,0);
+    ghost.mat.opacity=0;
+    this._step=0; this._open=0;
+  },
+  cam(t){
+    const base=(NF-1)*FH;
+    camera.position.set(-12.62+Math.min(cine.t*.8,0.5),base+1.62,Math.sin(cine.t*1.1)*.04);
+    camera.lookAt(13,base+1.35,0);
+  },
+  tick(t){
+    const tt=cine.t;
+    if(tt>.7&&!this._open) this._open=1;
+    if(this._open){
+      cineDoorL.position.z=Math.max(-1.62,cineDoorL.position.z-.022);
+      cineDoorR.position.z=Math.min(1.62,cineDoorR.position.z+.022);
+    }
+    if(tt>1.4) ghost.mat.opacity=Math.min(.92,ghost.mat.opacity+.02);
+    ghostFaceCam();
+    const steps=[[3.5,8.2],[5.5,5.2],[7.5,2.2],[9.3,-1.2],[11,-4.6],[12.4,-7.6],[13.6,-10.2]];
+    if(this._step<steps.length&&tt>steps[this._step][0]){
+      ghost.mesh.position.x=steps[this._step][1];
+      this._step++;
+      flickT=.22; staticLv=Math.max(staticLv,.4+this._step*.07);
+      sfx.skitter(0,.1+this._step*.04);
+      playNoise(.12,2400,.1+this._step*.03,'highpass');
+      if(this._step>=4) sfx.heartbeat();
+      if(this._step===steps.length) whisperSet(.9,ghost.mesh.position.x,0);
+    }
+  },
+  onEnd(){ whisperSet(0); }},
+ /* S7 電梯墜落 */
+ {dur:3.6,env:'int',lvl:NF,
+  onStart(){
+    ghostHide();
+    playTone(760,70,2.8,.3,'sawtooth',0,0,.6);
+    playNoise(2.8,140,.4,'lowpass',0,0,.8);
+    humanScream(640,.5,.25,.4);
+    this._y0=(NF-1)*FH+1.62;
+  },
+  cam(t){
+    const fall=t*t;
+    camera.position.set(-12.62+rand(-.07,.07)*t*3,
+      lerp(this._y0,2.4,fall)+rand(-.05,.05),
+      rand(-.06,.06)*t*3);
+    camera.lookAt(13,camera.position.y-.3+rand(-.2,.2),rand(-.4,.4));
+  },
+  tick(t){
+    flickT=.2; staticLv=Math.max(staticLv,.5+t*.4);
+    fade.a=Math.max(fade.a,t*.55);
+    if(t>.92&&!this._th){ this._th=1; sfx.slam(0); subSwell(); giggleFar(0); }
+  },
+  onEnd(){ cineDoorsG.visible=false; }},
+ /* S8 全景：每層樓的燈瘋狂閃爍，伴著她的嘻笑聲 */
+ {dur:11,env:'ext',sub:NARR[7],
+  onStart(){
+    winFlicker.visible=true;
+    if(ghostWindow) ghostWindow.visible=true;
+    giggleFar(rand(-1,1));
+    setTimeout(()=>{ if(state==='cine') giggleFar(rand(-1,1)); },2600);
+    setTimeout(()=>{ if(state==='cine'){ giggleFar(rand(-1,1)); humanScream(700,.6,.06,.2,rand(-1,1)); } },5400);
+  },
+  cam(t){ camLerp(t,[16,8,30],[48,26,68],[0,15,0],[0,15,0]); },
+  tick(t){
+    for(let i=0;i<14;i++){
+      const w=winFlicker.children[(Math.random()*winFlicker.children.length)|0];
+      w.visible=Math.random()<.5;
+    }
+    if(t>.6&&!this._n9){ this._n9=1; cine.sub=NARR[8]; cine.subT=4; narrateTTS(NARR[8]); }
+  },
+  onEnd(){ winFlicker.visible=false; }}
 ];
 const cine={idx:0,t:0,sub:'',subT:0,label:''};
 function setEnvShot(shot){
@@ -1788,6 +1945,7 @@ function cineUpdate(dt){
   if(s.tick) s.tick(t);
   if(cine.t>=s.dur-.34&&!s._fading){ s._fading=1; fadeTo(1,3); }
   if(cine.t>=s.dur){
+    if(s.onEnd) s.onEnd();
     cine.idx++;
     if(cine.idx>=SHOTS.length){ startCard(); return; }
     SHOTS[cine.idx-1]._fading=0;
@@ -1797,9 +1955,18 @@ function cineUpdate(dt){
 }
 function skipCine(){ stopTTS(); ghostHide(); startCard(); }
 let cardT=0;
+function cineCleanup(){
+  if(cineDoorsG) cineDoorsG.visible=false;
+  if(cineCabG) cineCabG.visible=false;
+  if(cineInd) cineInd.visible=false;
+  if(cineLight) cineLight.intensity=0;
+  if(winFlicker) winFlicker.visible=false;
+  if(ELEV[1]) ELEV[1].target=0;
+}
 function startCard(){
   state='card'; cardT=0;
   stopTTS(); if(ghostWindow) ghostWindow.visible=false;
+  cineCleanup();
   fadeSet(1);
 }
 /* ---- 終章 ---- */
@@ -1870,7 +2037,8 @@ function showCredits(){
     `「畏罪自殺」結論，撤銷。<br><br>`+
     `調查耗時 ${m} 分 ${s} 秒　・　她出現了 ${scareCount} 次<br>`+
     `她從來沒有傷過任何人。連最後那一晚都沒有。<br><br>`+
-    `天台門內側的那雙鞋，有人替她擺正了。`;
+    `天台門內側的那雙鞋，有人替她擺正了。<br><br>`+
+    `<span style="color:#5f5b53">記憶卡裡還有上一段錄影——<a href="game.html" style="color:#8f897d">《地下三樓》</a></span>`;
   document.getElementById('credits').classList.add('show');
   document.exitPointerLock&&document.exitPointerLock();
 }
@@ -2196,7 +2364,7 @@ function loop(ts){
   if(Math.abs(fade.target-fade.a)<.01) fade.a=fade.target;
   if(msgT>0) msgT-=dt;
   if(cine.subT>0) cine.subT-=dt;
-  if(state==='cine'){ cineUpdate(dt); updateLights(dt,now); }
+  if(state==='cine'){ cineUpdate(dt); updateDoors(dt); updateLights(dt,now); }
   else if(state==='card'){ cardT+=dt; if(cardT>3.9) startPlay(); }
   else if(state==='play'){
     playT+=dt;
