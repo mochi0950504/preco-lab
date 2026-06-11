@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>十樓的她｜維多利亞大飯店</title>
 <style>
   *{ margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
@@ -11,8 +11,9 @@
   #wrap{ position:fixed; inset:0; background:#000; }
   #wrap canvas{ position:absolute; inset:0; width:100%; height:100%; }
   #fx{ z-index:5; pointer-events:none; }
-  .overlay{ position:fixed; inset:0; display:none; flex-direction:column; align-items:center; justify-content:center;
+  .overlay{ position:fixed; inset:0; display:none; flex-direction:column; align-items:center; justify-content:flex-start;
     background:rgba(0,0,0,.93); z-index:30; text-align:center; padding:24px; overflow-y:auto; }
+  .overlay::before,.overlay::after{ content:''; margin:auto; }
   .overlay.show{ display:flex; }
   .overlay h1{ font-size:44px; letter-spacing:16px; font-weight:700; color:#b9b2a2;
     margin-bottom:6px; text-shadow:0 0 26px rgba(140,30,22,.5); }
@@ -29,13 +30,17 @@
   a.tiny:hover{ color:#9a948a; }
   #touchui{ display:none; position:fixed; inset:0; z-index:20; pointer-events:none; }
   body.touch #touchui{ display:block; }
-  #stick{ position:absolute; left:24px; bottom:24px; width:120px; height:120px; border:1px solid rgba(255,255,255,.18);
+  #stick{ position:absolute; left:calc(24px + env(safe-area-inset-left)); bottom:calc(24px + env(safe-area-inset-bottom));
+    width:120px; height:120px; border:1px solid rgba(255,255,255,.18);
     border-radius:50%; background:rgba(255,255,255,.04); }
   #knob{ position:absolute; left:40px; top:40px; width:40px; height:40px; border-radius:50%; background:rgba(255,255,255,.18); }
   .tbtn{ position:absolute; width:62px; height:62px; border-radius:50%; border:1px solid rgba(255,255,255,.22);
     background:rgba(255,255,255,.06); color:#cfcabe; font-size:13px; display:flex; align-items:center; justify-content:center;
     pointer-events:auto; user-select:none; -webkit-user-select:none; }
-  #btnRun{ right:24px; bottom:120px; } #btnLight{ right:100px; bottom:40px; } #btnE{ right:24px; bottom:40px; }
+  #btnRun{ right:calc(24px + env(safe-area-inset-right)); bottom:calc(120px + env(safe-area-inset-bottom)); }
+  #btnLight{ right:calc(100px + env(safe-area-inset-right)); bottom:calc(40px + env(safe-area-inset-bottom)); }
+  #btnE{ right:calc(24px + env(safe-area-inset-right)); bottom:calc(40px + env(safe-area-inset-bottom)); }
+  #btnPause{ right:calc(18px + env(safe-area-inset-right)); top:calc(18px + env(safe-area-inset-top)); width:46px; height:46px; font-size:15px; }
 </style>
 </head>
 <body>
@@ -46,6 +51,7 @@
   <div class="tbtn" id="btnRun">跑</div>
   <div class="tbtn" id="btnLight">燈</div>
   <div class="tbtn" id="btnE">E</div>
+  <div class="tbtn" id="btnPause">∥</div>
 </div>
 
 <div class="overlay show" id="title">
@@ -67,7 +73,8 @@
   <div class="controls">
     <b>WASD／方向鍵</b>　移動　　<b>滑鼠</b>　視角（點畫面鎖定）　　<b>Shift</b>　快走<br>
     <b>F</b>　手電筒　　<b>E</b>　互動／閱讀　　<b>Esc</b>　暫停　　<b>Enter</b>　跳過開場動畫<br><br>
-    提示：證據在 1、3、5、7、9 樓。亮著微光的門，是進得去的門。
+    提示：證據在 1、3、5、7、9 樓。亮著微光的門，是進得去的門。<br>
+    ⚙ 本作以即時陰影、體積光、PBR 材質與 ACES 電影調色渲染；效能不足時會自動降載。
   </div>
   <div class="warn">⚠ 含突發驚嚇畫面與巨大聲響，請戴耳機。本作無死亡判定，請放心探索 ⚠</div>
   <button class="go" id="btnStart">進入飯店</button>
@@ -96,28 +103,80 @@ const rand=(a,b)=>a+Math.random()*(b-a);
 const lerp=(a,b,t)=>a+(b-a)*t;
 const sstep=t=>t*t*(3-2*t);
 function mkCanvas(w,h){ const c=document.createElement('canvas'); c.width=w; c.height=h; return c; }
-function ctex(c,rx,ry){
+function ctex1(c){
+  const t=new THREE.CanvasTexture(c);
+  t.encoding=THREE.sRGBEncoding;
+  return t;
+}
+function ntex(c,rx,ry){
   const t=new THREE.CanvasTexture(c);
   if(rx||ry){ t.wrapS=THREE.RepeatWrapping; t.wrapT=THREE.RepeatWrapping; t.repeat.set(rx||1,ry||1); }
   return t;
 }
+function ctex(c,rx,ry){
+  const t=ctex1(c);
+  if(rx||ry){ t.wrapS=THREE.RepeatWrapping; t.wrapT=THREE.RepeatWrapping; t.repeat.set(rx||1,ry||1); }
+  return t;
+}
+/* 由高度（亮度）推導法線貼圖：Sobel 梯度 */
+function makeNormal(src,strength){
+  const w=src.width,h=src.height;
+  const sg=src.getContext('2d');
+  const id=sg.getImageData(0,0,w,h).data;
+  const out=mkCanvas(w,h), og=out.getContext('2d');
+  const od=og.createImageData(w,h);
+  const L=(x,y)=>{ x=(x+w)%w; y=(y+h)%h; const i=(y*w+x)*4;
+    return (id[i]*.299+id[i+1]*.587+id[i+2]*.114)/255; };
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+    const dx=(L(x+1,y)-L(x-1,y))*strength, dy=(L(x,y+1)-L(x,y-1))*strength;
+    const nz=1/Math.sqrt(dx*dx+dy*dy+1), p=(y*w+x)*4;
+    od.data[p]=(-dx*nz*.5+.5)*255; od.data[p+1]=(dy*nz*.5+.5)*255;
+    od.data[p+2]=nz*255; od.data[p+3]=255;
+  }
+  og.putImageData(od,0,0); return out;
+}
+/* 微型等距環境圖（給 PBR 反射用） */
+function makeEquirectEnv(){
+  const c=mkCanvas(128,64), g=c.getContext('2d');
+  const gr=g.createLinearGradient(0,0,0,64);
+  gr.addColorStop(0,'#10141c'); gr.addColorStop(.55,'#08090c'); gr.addColorStop(1,'#040404');
+  g.fillStyle=gr; g.fillRect(0,0,128,64);
+  g.fillStyle='rgba(255,214,150,.5)';
+  for(const [ex,ey,r] of [[20,18,3],[64,14,4],[104,20,3],[44,24,2]]){
+    g.beginPath(); g.arc(ex,ey,r,0,7); g.fill();
+  }
+  return c;
+}
 /* ---- 室內貼圖 ---- */
 function makeWallpaper(){
-  const c=mkCanvas(256,256), g=c.getContext('2d');
-  const gr=g.createLinearGradient(0,0,0,256);
-  gr.addColorStop(0,'#2c3134'); gr.addColorStop(1,'#22262a');
-  g.fillStyle=gr; g.fillRect(0,0,256,256);
-  g.strokeStyle='rgba(150,140,110,.13)'; g.lineWidth=2;
-  for(let y=0;y<2;y++)for(let x=0;x<2;x++){
-    const cx=64+x*128, cy=64+y*128;
-    g.beginPath(); g.moveTo(cx,cy-44); g.quadraticCurveTo(cx+34,cy,cx,cy+44);
-    g.quadraticCurveTo(cx-34,cy,cx,cy-44); g.stroke();
-    g.beginPath(); g.ellipse(cx,cy,10,16,0,0,7); g.stroke();
+  const c=mkCanvas(512,512), g=c.getContext('2d');
+  const gr=g.createLinearGradient(0,0,0,512);
+  gr.addColorStop(0,'#2c3134'); gr.addColorStop(.66,'#22262a'); gr.addColorStop(1,'#1e2226');
+  g.fillStyle=gr; g.fillRect(0,0,512,512);
+  g.strokeStyle='rgba(150,140,110,.14)'; g.lineWidth=3;
+  for(let y=0;y<2;y++)for(let x=0;x<4;x++){
+    const cx=64+x*128, cy=86+y*172;
+    g.beginPath(); g.moveTo(cx,cy-52); g.quadraticCurveTo(cx+40,cy,cx,cy+52);
+    g.quadraticCurveTo(cx-40,cy,cx,cy-52); g.stroke();
+    g.beginPath(); g.ellipse(cx,cy,12,20,0,0,7); g.stroke();
+    g.beginPath(); g.arc(cx,cy-58,4,0,7); g.stroke();
   }
-  g.fillStyle='rgba(10,8,6,.25)';
-  for(let i=0;i<46;i++) g.fillRect(rand(0,256)|0,rand(150,256)|0,rand(2,18)|0,rand(2,7)|0);
+  // 下緣護牆板：直木板＋腰線
+  const dado=512*.66;
+  g.fillStyle='#241c14'; g.fillRect(0,dado,512,512-dado);
+  for(let x=0;x<512;x+=64){
+    const wg=g.createLinearGradient(x,0,x+64,0);
+    wg.addColorStop(0,'#2e2418'); wg.addColorStop(.5,'#3a2d1d'); wg.addColorStop(1,'#271e14');
+    g.fillStyle=wg; g.fillRect(x+2,dado+8,60,512-dado-12);
+    g.strokeStyle='rgba(0,0,0,.5)'; g.lineWidth=2;
+    g.strokeRect(x+8,dado+18,48,512-dado-32);
+  }
+  g.fillStyle='#46382a'; g.fillRect(0,dado-6,512,10);
+  g.fillStyle='rgba(255,240,210,.07)'; g.fillRect(0,dado-6,512,3);
+  g.fillStyle='rgba(10,8,6,.28)';
+  for(let i=0;i<90;i++) g.fillRect(rand(0,512)|0,rand(300,512)|0,rand(2,22)|0,rand(2,8)|0);
   g.fillStyle='rgba(120,110,92,.10)';
-  for(let i=0;i<8;i++) g.fillRect(rand(0,256)|0,rand(0,256)|0,rand(6,30)|0,rand(10,46)|0);
+  for(let i=0;i<12;i++) g.fillRect(rand(0,512)|0,rand(0,330)|0,rand(8,36)|0,rand(12,56)|0);
   return c;
 }
 function makeCarpet(){
@@ -748,7 +807,7 @@ function subSwell(){
   const o=AC.createOscillator(), g=AC.createGain(), t=AC.currentTime;
   o.frequency.value=33;
   g.gain.setValueAtTime(0,t);
-  g.gain.linearRampToValueAtTime(.15,t+1.6);
+  g.gain.linearRampToValueAtTime(.08,t+1.6);
   g.gain.linearRampToValueAtTime(0,t+3.4);
   o.connect(g); g.connect(master); o.start(t); o.stop(t+3.5);
 }
@@ -782,7 +841,7 @@ function musicBox(vol,slow){
 }
 const sfx={
   step(mat,run){
-    if(mat==='marble') playTone(rand(700,900),300,.05,run?.12:.07,'square',0,0,.4);
+    if(mat==='marble') playTone(rand(700,900),300,.05,run?.06:.035,'triangle',0,0,.4);
     else if(mat==='wood'){ playNoise(.08,300,run?.16:.1); if(Math.random()<.3) playTone(90,60,.18,.06,'sine',0,0,.5); }
     else if(mat==='stair'){ playNoise(.09,260,run?.18:.12); if(Math.random()<.45) playTone(110,70,.22,.08,'triangle',0,0,.6); }
     else playNoise(.08,run?420:330,run?.14:.08);
@@ -795,7 +854,7 @@ const sfx={
   skitter(pan,vol){ for(let i=0;i<8;i++) playNoise(.03,rand(900,1600),(vol||.1)*rand(.6,1),'bandpass',pan,i*rand(.05,.09),.4); },
   whoosh(pan){ playNoise(.5,800,.22,'bandpass',pan,0,.5); playNoise(.4,300,.14,'lowpass',pan,.05,.5); },
   boneCracks(pan){ for(let i=0;i<6;i++) playNoise(.025,rand(2200,3400),.14,'bandpass',pan,i*rand(.1,.2),.5); },
-  heartbeat(){ playTone(55,40,.13,.45,'sine'); playTone(50,38,.11,.28,'sine',.16); },
+  heartbeat(){ playTone(55,40,.13,.3,'sine'); playTone(50,38,.11,.2,'sine',.16); },
   flash(){ playTone(1800,1200,.03,.07,'square'); },
   paper(){ playNoise(.22,3400,.07,'highpass'); },
   pickup(){ playTone(660,990,.16,.2,'triangle'); },
@@ -803,10 +862,10 @@ const sfx={
   chime(){ playTone(196,0,2.8,.07,'sine',0,0,1.2); playTone(392.5,0,2,.03,'sine',.02,0,1.2); },
   vanish(){ playNoise(.35,2600,.28,'highpass'); playTone(70,45,.45,.3,'square'); },
   scream(big){
-    humanScream(big?330:560,big?1.25:.7,big?.75:.45);
-    if(big){ humanScream(760,1.05,.5,.06); playTone(64,38,1.2,.45,'square',0,0,.5); }
+    humanScream(big?330:560,big?1.25:.7,big?.55:.4);
+    if(big){ humanScream(760,1.05,.4,.06); playTone(64,38,1.2,.3,'square',0,0,.5); }
   },
-  tvOn(){ if(tvGain) tvGain.gain.setTargetAtTime(.16,AC.currentTime,.08); },
+  tvOn(){ if(tvGain) tvGain.gain.setTargetAtTime(.10,AC.currentTime,.08); },
   tvOff(){ if(tvGain) tvGain.gain.setTargetAtTime(0,AC.currentTime,.05); }
 };
 let ttsVoice=null, ttsTried=false;
@@ -847,7 +906,7 @@ function stopTTS(){ try{ if(typeof speechSynthesis!=='undefined') speechSynthesi
 /* ============ S3：場景、飯店建造、碰撞 ============ */
 let scene,camera,renderer,fxC,fxg;
 let flash,flashTgt,amb,pool=[],roomLights=[],warmLight,chandLight;
-let exteriorG,lobbyG,floorsG={},ghostWindow,signLit;
+let exteriorG,lobbyG,floorsG={},ghostWindow,signLit,beam=null;
 let winFlicker=null,cineDoorsG=null,cineDoorL=null,cineDoorR=null,cineCabG=null,cineInd=null,cineIndTex=null,cineLight=null;
 const COL={}, STAIRZ=[], INTER=[], SCONCES={}, ELEV={};
 let room1013={built:false,spawned:false,group:null,wallMesh:null,doorMesh:null,wallCol:null,doorCol:null};
@@ -886,13 +945,35 @@ function initScene(){
   scene.fog=new THREE.FogExp2(0x000000,.085);
   camera=new THREE.PerspectiveCamera(72,16/9,.05,260);
   renderer=makeRenderer();
+  if(!window.__SMOKE__){
+    renderer.shadowMap.enabled=true;
+    renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+    renderer.toneMapping=THREE.NoToneMapping;
+    renderer.outputEncoding=THREE.LinearEncoding;
+  }
   const wrap=document.getElementById('wrap');
   wrap.insertBefore(renderer.domElement,document.getElementById('fx'));
   fxC=document.getElementById('fx'); fxg=fxC.getContext('2d');
-  amb=new THREE.AmbientLight(0x16181e,.5); scene.add(amb);
-  flash=new THREE.SpotLight(0xfff0d2,2.4,20,.46,.55,1.2);
+  amb=new THREE.AmbientLight(0x10131c,.32); scene.add(amb);
+  flash=new THREE.SpotLight(0xfff0d2,3.4,20,.46,.6,1.3);
+  flash.castShadow=true;
+  flash.shadow.mapSize.set(1024,1024);
+  flash.shadow.camera.near=.25; flash.shadow.camera.far=20;
+  flash.shadow.bias=-.002;
   flashTgt=new THREE.Object3D(); scene.add(flashTgt);
   flash.target=flashTgt; scene.add(flash);
+  flash.intensity=0;
+  // 體積光錐（塵霧中的光柱）
+  const bc=mkCanvas(64,64), bg2=bc.getContext('2d');
+  const bgr=bg2.createLinearGradient(0,0,0,64);
+  bgr.addColorStop(0,'rgba(255,238,200,.55)'); bgr.addColorStop(1,'rgba(255,238,200,0)');
+  bg2.fillStyle=bgr; bg2.fillRect(0,0,64,64);
+  const beamGeo=new THREE.ConeGeometry(1.5,7.5,24,1,true);
+  beamGeo.rotateX(Math.PI/2); beamGeo.translate(0,0,-3.75);
+  beam=new THREE.Mesh(beamGeo,new THREE.MeshBasicMaterial({
+    map:ntex(bc),transparent:true,opacity:.05,
+    blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide}));
+  beam.renderOrder=4; beam.visible=false; scene.add(beam);
   for(let i=0;i<3;i++){ const L=new THREE.PointLight(0xffd9a0,0,7); scene.add(L); pool.push(L); }
   chandLight=new THREE.PointLight(0xffd9a0,0,9); chandLight.position.set(0,2.5,0); scene.add(chandLight);
   warmLight=new THREE.PointLight(0xffe0b0,0,12); scene.add(warmLight);
@@ -906,29 +987,45 @@ function buildMaterials(){
   TX.wallpaper=ctex(makeWallpaper(),2,1.4); TX.carpet=ctex(makeCarpet(),1,8);
   TX.wood=ctex(makeWood(),2,2); TX.plaster=ctex(makePlaster(),3,1);
   TX.marble=ctex(makeMarble(true),6,3); TX.marbleD=ctex(makeMarble(false),2,2);
-  TX.doorL=new THREE.CanvasTexture(makeDoor(''));
-  TX.doorB=new THREE.CanvasTexture(makeDoor('',{boarded:true}));
-  TX.door1013w=new THREE.CanvasTexture(makeDoor('',{outline:true}));
-  TX.door1013=new THREE.CanvasTexture(makeDoor('1013'));
+  TX.doorL=ctex1(makeDoor(''));
+  TX.doorB=ctex1(makeDoor('',{boarded:true}));
+  TX.door1013w=ctex1(makeDoor('',{outline:true}));
+  TX.door1013=ctex1(makeDoor('1013'));
   TX.facadeF=ctex(makeFacade(true),1,1); TX.facadeS=ctex(makeFacade(false),1,1);
-  TX.signD=new THREE.CanvasTexture(makeSign(false)); TX.signL=new THREE.CanvasTexture(makeSign(true));
-  TX.winGlow=new THREE.CanvasTexture(makeWindowGlow());
-  TX.clock=new THREE.CanvasTexture(makeClockFace());
-  TX.paper=new THREE.CanvasTexture(makePaperTex());
-  TX.paint0=new THREE.CanvasTexture(makePainting(0)); TX.paint1=new THREE.CanvasTexture(makePainting(1));
-  TX.tvCanvas=mkCanvas(128,96); TX.tv=new THREE.CanvasTexture(TX.tvCanvas);
-  const L=(map)=>new THREE.MeshLambertMaterial({map});
-  MAT.wall=L(TX.wallpaper); MAT.carpet=L(TX.carpet); MAT.wood=L(TX.wood);
-  MAT.ceil=L(TX.plaster); MAT.marble=L(TX.marble); MAT.marbleD=L(TX.marbleD);
-  MAT.doorL=L(TX.doorL); MAT.doorB=L(TX.doorB);
+  TX.signD=ctex1(makeSign(false)); TX.signL=ctex1(makeSign(true));
+  TX.winGlow=ctex1(makeWindowGlow());
+  TX.clock=ctex1(makeClockFace());
+  TX.paper=ctex1(makePaperTex());
+  TX.paint0=ctex1(makePainting(0)); TX.paint1=ctex1(makePainting(1));
+  TX.tvCanvas=mkCanvas(128,96); TX.tv=ctex1(TX.tvCanvas);
+  // PBR：由漫反射貼圖推導法線
+  const wallC=TX.wallpaper.image, woodC=TX.wood.image, marC=TX.marble.image,
+        carC=TX.carpet.image, plaC=TX.plaster.image;
+  const nWall=ntex(makeNormal(wallC,1.6),2,1.4);
+  const nWood=ntex(makeNormal(woodC,1.4),2,2);
+  const nMar=ntex(makeNormal(marC,.5),6,3);
+  const nCar=ntex(makeNormal(carC,1.0),1,8);
+  const nPla=ntex(makeNormal(plaC,1.2),3,1);
+  const Pm=(map,normalMap,rough,metal,ns)=>new THREE.MeshStandardMaterial({
+    map,normalMap,roughness:rough,metalness:metal||0,
+    normalScale:new THREE.Vector2(ns||1,ns||1),envMapIntensity:.18});
+  MAT.wall=Pm(TX.wallpaper,nWall,.9,0,.9);
+  MAT.carpet=Pm(TX.carpet,nCar,.96,0,.7);
+  MAT.wood=Pm(TX.wood,nWood,.5,0,1.1);
+  MAT.ceil=Pm(TX.plaster,nPla,.92,0,.8);
+  MAT.marble=Pm(TX.marble,nMar,.22,0,.4); MAT.marble.envMapIntensity=.55;
+  MAT.marbleD=Pm(TX.marbleD,null,.3,0,1); MAT.marbleD.envMapIntensity=.45;
+  MAT.doorL=new THREE.MeshStandardMaterial({map:TX.doorL,roughness:.62,metalness:0});
+  MAT.doorB=new THREE.MeshStandardMaterial({map:TX.doorB,roughness:.7,metalness:0});
   MAT.facadeF=new THREE.MeshBasicMaterial({map:TX.facadeF});
   MAT.facadeS=new THREE.MeshBasicMaterial({map:TX.facadeS});
-  MAT.dark=new THREE.MeshLambertMaterial({color:0x17150f});
-  MAT.metal=new THREE.MeshLambertMaterial({color:0x4a4c50});
-  MAT.brass=new THREE.MeshLambertMaterial({color:0x6e5a30});
-  MAT.fabric=new THREE.MeshLambertMaterial({color:0x2e2024});
-  MAT.sheet=new THREE.MeshLambertMaterial({color:0x6e6a60});
+  MAT.dark=new THREE.MeshStandardMaterial({color:0x17150f,roughness:.85});
+  MAT.metal=new THREE.MeshStandardMaterial({color:0x9a9da3,roughness:.32,metalness:.92,envMapIntensity:.8});
+  MAT.brass=new THREE.MeshStandardMaterial({color:0x8a6e36,roughness:.38,metalness:.9,envMapIntensity:.8});
+  MAT.fabric=new THREE.MeshStandardMaterial({color:0x2e2024,roughness:.95});
+  MAT.sheet=new THREE.MeshStandardMaterial({color:0x6e6a60,roughness:.9});
   MAT.winGlow=new THREE.MeshBasicMaterial({map:TX.winGlow});
+  MAT.trim=new THREE.MeshStandardMaterial({color:0x2e2418,roughness:.55});
   MAT.sconceOn=()=>new THREE.MeshBasicMaterial({color:0xffd9a0});
   MAT.tv=new THREE.MeshBasicMaterial({map:TX.tv,color:0x222222});
   MAT.paperM=new THREE.MeshBasicMaterial({map:TX.paper});
@@ -938,7 +1035,7 @@ function numberPlate(txt){
   g.fillStyle='#9a8a64'; g.fillRect(0,0,64,32);
   g.fillStyle='#231a10'; g.font=(txt.length>3?'13px':'17px')+' "Noto Sans TC",serif';
   g.textAlign='center'; g.textBaseline='middle'; g.fillText(txt,32,17);
-  return new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(c)});
+  return new THREE.MeshBasicMaterial({map:ctex1(c)});
 }
 const NUMS=[1,2,3,4,5,6,7,8,9,10,11,12,14,15,16,17];
 function roomNo(lvl,slotIdx){ return ''+lvl+String(NUMS[slotIdx]).padStart(2,'0'); }
@@ -951,11 +1048,11 @@ function buildShaft(parent,lvl,sideX){
       const h=(i+1)*.17;
       box(parent,MAT.dark,M(16.0),base+h/2,-1.0-(i+.5)*.22,1.36,h,.22,{col:false});
       const h2=1.7+(i+1)*.17;
-      box(parent,MAT.dark,M(13.8),base+h2/2,-3.2+(i+.5)*.22,1.36,h2,.22,{col:false});
+      box(parent,MAT.dark,M(13.95),base+h2/2,-3.2+(i+.5)*.22,1.7,h2,.22,{col:false});
     }
     box(parent,MAT.dark,M(14.9),base+1.7-.12,-3.7,3.4,.25,.96,{col:false});
     STAIRZ.push({lvl,x0:Math.min(M(15.3),M(16.7)),x1:Math.max(M(15.3),M(16.7)),z0:-3.2,z1:-1.0,h0:1.7,h1:0});
-    STAIRZ.push({lvl,x0:Math.min(M(13.1),M(14.5)),x1:Math.max(M(13.1),M(14.5)),z0:-3.2,z1:-1.0,h0:1.7,h1:3.4});
+    STAIRZ.push({lvl,x0:Math.min(M(13.1),M(14.82)),x1:Math.max(M(13.1),M(14.82)),z0:-3.2,z1:-1.0,h0:1.7,h1:3.4});
     STAIRZ.push({lvl,x0:Math.min(M(13.1),M(16.7)),x1:Math.max(M(13.1),M(16.7)),z0:-4.2,z1:-3.2,h0:1.7,h1:1.7});
     box(parent,wall,M(15.0),base+1.65,-2.1,.3,3.3,2.2,{lvl});
   }
@@ -968,10 +1065,12 @@ function buildShaft(parent,lvl,sideX){
   box(parent,wall,M(13.0),base+2.95,.1,.16,1.0,2.3,{col:false});
   plane(parent,MAT.winGlow,1.1,1.9,M(16.78),base+1.9,-1.5,S>0?-Math.PI/2:Math.PI/2);
   if(lvl===NF){
-    const m=plane(parent,new THREE.MeshLambertMaterial({map:TX.doorB}),1.0,2.2,M(15.5),base+1.1,-4.18,0);
+    box(parent,wall,M(15.75),base+FH/2,-1.06,2.3,FH,.14,{lvl});
+    box(parent,wall,M(14.62),base+FH/2,-2.1,.14,FH,2.2,{lvl});
+    const m=plane(parent,new THREE.MeshLambertMaterial({map:TX.doorB}),1.0,2.2,M(15.75),base+1.1,-.98,0);
     INTER.push({mesh:m,type:'roofdoor'});
-    box(parent,MAT.dark,M(14.6),base+.12,-3.9,.13,.1,.3,{col:false});
-    const shoe1=box(parent,MAT.dark,M(14.52),base+.07,-3.86,.1,.07,.26,{col:false});
+    box(parent,MAT.dark,M(15.62),base+.07,-.7,.13,.1,.3,{col:false});
+    const shoe1=box(parent,MAT.dark,M(15.45),base+.07,-.7,.1,.07,.26,{col:false});
     INTER.push({mesh:shoe1,type:'shoes'});
   }
 }
@@ -986,7 +1085,7 @@ function buildRoom(parent,lvl,slotX,side,kind,evidId){
   box(g,MAT.wall,slotX+1.6,base+FH/2,zc,.14,FH,depth,{lvl});
   box(g,MAT.wall,slotX,base+FH/2,zOut,3.3,FH,.16,{lvl});
   plane(g,MAT.winGlow,1.2,1.9,slotX+.8,base+1.85,zOut-side*.1,side>0?Math.PI:0);
-  const rl=new THREE.PointLight(0x6e86b8,.28,6.5);
+  const rl=new THREE.PointLight(0x6e86b8,.55,6.5);
   rl.position.set(slotX,base+2.2,side*4); scene.add(rl); roomLights.push(rl);
   const bz=side*4.4;
   box(g,MAT.sheet,slotX-.85,base+.3,bz-side*.3,1.35,.55,2.0,{lvl});
@@ -1021,7 +1120,7 @@ function buildDoorway(parent,lvl,slotX,side,label,opts){
   box(parent,MAT.wall,slotX+(.46+(segL/2-.46)/2),base+FH/2,z+side*.03,(segL/2-.46),FH,.14,{lvl});
   box(parent,MAT.wall,slotX,base+2.6,z+side*.03,.95,FH-2.2,.14,{col:false});
   const hinge=new THREE.Group(); hinge.position.set(slotX-.46,base,z); parent.add(hinge);
-  const mat=new THREE.MeshLambertMaterial({map:new THREE.CanvasTexture(makeDoor(label||''))});
+  const mat=new THREE.MeshLambertMaterial({map:ctex1(makeDoor(label||''))});
   const panel=new THREE.Mesh(new THREE.BoxGeometry(.92,2.2,.08),mat);
   panel.position.set(.46,1.1,0); hinge.add(panel);
   const col=addCol(lvl,slotX,base+1.5,z,1.0,3,.3);
@@ -1086,6 +1185,10 @@ function buildFloor(lvl){
   const btn=plane(G,new THREE.MeshBasicMaterial({color:0x554a28}),.06,.1,1.55,base+1.3,1.09,Math.PI);
   ELEV[lvl]={l:eL,r:eR,open:0,target:0,used:false};
   INTER.push({mesh:eL,type:'elev',lvl}); INTER.push({mesh:eR,type:'elev',lvl});
+  for(const sz2 of [-1.12,1.12]){
+    box(G,MAT.trim,0,base+2.84,sz2,26.4,.1,.07,{col:false});
+    box(G,MAT.trim,0,base+.07,sz2,26.4,.14,.05,{col:false});
+  }
   SCONCES[lvl]=[];
   for(let i=0;i<7;i++){
     const x=-9.6+i*3.2, side=i%2?1:-1;
@@ -1106,7 +1209,7 @@ function buildFloor(lvl){
     plane(G,MAT.marbleD,3.8,2.2,-14.9,base+.005,.1,0,-Math.PI/2);
   }
   if(lvl===NF){
-    const wm=box(G,MAT.wall,0,base+FH/2,-1.18,3.2,FH,.2,{col:false});
+    const wm=box(G,MAT.wall,0,base+FH/2,-1.18,3.2,FH,.14,{col:false});
     wm.material=new THREE.MeshLambertMaterial({map:TX.door1013w});
     room1013.wallMesh=wm;
     room1013.wallCol=addCol(lvl,0,base+1.5,-1.18,3.2,FH,.4);
@@ -1132,7 +1235,7 @@ function build1013(){
   const mirror=plane(g,new THREE.MeshLambertMaterial({color:0x202830}),.6,.9,1.0,base+1.5,-5.93,0);
   INTER.push({mesh:desk,type:'finaleDesk'});
   room1013.deskPos=new THREE.Vector3(1.0,base+.6,-5.2);
-  const wl=new THREE.PointLight(0x6e86b8,.3,6); wl.position.set(0,base+2.2,-4); scene.add(wl); roomLights.push(wl);
+  const wl=new THREE.PointLight(0x6e86b8,.55,6); wl.position.set(0,base+2.2,-4); scene.add(wl); roomLights.push(wl);
   room1013.roomLight=wl;
 }
 function spawn1013(){
@@ -1157,6 +1260,8 @@ function buildLobby(){
   plane(G,MAT.marble,34.4,12.8,0,.005,0,0,-Math.PI/2);
   plane(G,MAT.ceil,34.4,12.8,0,3.18,0,0,Math.PI/2);
   box(G,MAT.wall,0,FH/2,-6.1,34.6,FH,.2,{lvl:1});
+  box(G,MAT.wall,17.2,FH/2,0,.2,FH,12.6,{lvl:1});
+  box(G,MAT.wall,-17.2,FH/2,0,.2,FH,12.6,{lvl:1});
   box(G,MAT.wall,-9.1,FH/2,6.1,16.2,FH,.2,{lvl:1});
   box(G,MAT.wall,9.1,FH/2,6.1,16.2,FH,.2,{lvl:1});
   box(G,MAT.wall,0,2.85,6.1,2.0,1.1,.2,{col:false});
@@ -1232,7 +1337,7 @@ function buildLobby(){
 function buildOfficeDoor(G){
   const z=-2.55, slotX=-8.1+0;
   const hinge=new THREE.Group(); hinge.position.set(-8.1,0,-2.6); G.add(hinge);
-  const mat=new THREE.MeshLambertMaterial({map:new THREE.CanvasTexture(makeDoor('辦公室'))});
+  const mat=new THREE.MeshLambertMaterial({map:ctex1(makeDoor('辦公室'))});
   const panel=new THREE.Mesh(new THREE.BoxGeometry(.08,2.2,.92),mat);
   panel.position.set(0,1.1,-.46); hinge.add(panel);
   const col=addCol(1,-8.1,1.5,-3.05,.3,3,1.0);
@@ -1259,7 +1364,7 @@ function buildExterior(){
   box(G,MAT.dark,0,4.6,7.7,9.6,.6,3.4,{col:false});
   for(let i=0;i<3;i++) box(G,new THREE.MeshLambertMaterial({color:0x3a3833}),0,.12+i*.16,9.8-i*.5,10-i*1.2,.16,.8,{col:false});
   box(G,MAT.dark,0,2.15,6.54,3.2,4.3,.16,{col:false});
-  const doorMatE=new THREE.MeshLambertMaterial({map:new THREE.CanvasTexture(makeDoor(''))});
+  const doorMatE=new THREE.MeshLambertMaterial({map:ctex1(makeDoor(''))});
   for(const dx of [-.62,.62]){
     const dpn=new THREE.Mesh(new THREE.BoxGeometry(1.18,3.1,.12),doorMatE);
     dpn.position.set(dx,1.55,6.62); G.add(dpn);
@@ -1287,9 +1392,9 @@ function buildExterior(){
     box(G,MAT.dark,-13+i*2,1.0,22,.08,2.0,.08,{col:false}); }
   ghostWindow=new THREE.Group(); G.add(ghostWindow);
   const litWin=plane(ghostWindow,new THREE.MeshBasicMaterial({color:0xc8a96e}),1.5,2.1,5.1,(NF-1)*FH+1.8,6.64,0);
-  const sil=plane(ghostWindow,new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(POSE.stand),transparent:true,opacity:.9,color:0x111111}),.9,1.9,5.1,(NF-1)*FH+1.6,6.66,0);
+  const sil=plane(ghostWindow,new THREE.MeshBasicMaterial({map:ctex1(POSE.stand),transparent:true,opacity:.9,color:0x111111}),.9,1.9,5.1,(NF-1)*FH+1.6,6.66,0);
   ghostWindow.visible=false;
-  const dl=new THREE.DirectionalLight(0x32405e,.5);
+  const dl=new THREE.DirectionalLight(0x32405e,.7);
   dl.position.set(-40,50,-50); G.add(dl);
 }
 function buildAll(){
@@ -1297,6 +1402,20 @@ function buildAll(){
   buildExterior(); buildLobby();
   for(let n=2;n<=NF;n++) buildFloor(n);
   build1013(); buildCineProps();
+  scene.traverse(o=>{
+    if(o.isMesh&&o.material&&!o.material.transparent&&o.material.blending===THREE.NormalBlending){
+      o.castShadow=true; o.receiveShadow=true;
+    }
+  });
+  if(!window.__SMOKE__){
+    try{
+      const pm=new THREE.PMREMGenerator(renderer);
+      const eq=ctex1(makeEquirectEnv());
+      eq.mapping=THREE.EquirectangularReflectionMapping;
+      scene.environment=pm.fromEquirectangular(eq).texture;
+      eq.dispose(); pm.dispose();
+    }catch(e){}
+  }
 }
 function buildCineProps(){
   const base=(NF-1)*FH;
@@ -1321,7 +1440,7 @@ function buildCineProps(){
   plane(cineCabG,MAT.sconceOn(),.4,.26,0,2.7,1.9,0,Math.PI/2);
   cineIndTex=mkCanvas(96,48);
   cineInd=new THREE.Mesh(new THREE.PlaneGeometry(.5,.25),
-    new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(cineIndTex)}));
+    new THREE.MeshBasicMaterial({map:ctex1(cineIndTex)}));
   cineInd.position.set(0,2.42,1.2); cineInd.visible=false; scene.add(cineInd);
   cineLight=new THREE.PointLight(0xffe8c0,0,4.5);
   cineLight.position.set(0,2.55,1.9); scene.add(cineLight);
@@ -1385,7 +1504,6 @@ const EVID=[
   text:['《中央日報》1972.11.6','『飯店房務員監守自盜　畏罪墜樓』','','（紅筆批註，字跡用力到劃破紙面：）','','『她的鞋，整整齊齊擺在天台門的內側。','　要跳樓的人，','　會把鞋擺在門的裡面嗎？','　她是被人追上天台的。』'],
   hint:'九樓布草間。她的東西還在那裡。'},
  {id:4,lvl:9,room:{slot:11.2,side:-1},kind:'linen',doorLabel:'布草間',title:'她的日記・最後一頁',got:false,
-  px:10.6,pz:-5.0,
   text:['（日記・最後一頁）','','11 月 2 日　晴','','下個月領了薪水，就能給弟弟','買過冬的鞋了。','經理今天又對著新來的罵了一下午，','忍一忍，做滿這一年就回家。','','媽，再等我一下下。'],
   hint:'十樓。去找那個不存在的房間。'}
 ];
@@ -1410,6 +1528,7 @@ function tryMove(nx,nz){
 }
 function stepMat(){
   if(P.onStair) return 'stair';
+  if(Math.abs(P.x)>13) return 'stair';
   if(P.lvl===1) return (P.x<-8.1&&P.z<-2.5)?'wood':'marble';
   return Math.abs(P.z)<1.15?'carpet':'wood';
 }
@@ -1442,11 +1561,36 @@ function updatePlayer(dt){
   flash.position.copy(camera.position);
   const f2=forwardXZ();
   flashTgt.position.set(P.x+f2.x*6,P.feetY+1.62+Math.sin(P.pitch)*6,P.z+f2.z*6);
-  flash.intensity=P.flashOn?(2.2+rand(-.08,.08))*flickV:0;
+  flash.intensity=P.flashOn?(3.4+rand(-.12,.12))*flickV:0;
+  if(beam){
+    beam.visible=P.flashOn&&flickV>0;
+    beam.position.copy(camera.position);
+    beam.quaternion.copy(camera.quaternion);
+    beam.material.opacity=.05*flickV;
+  }
 }
 let flickV=1, flickT=0;
 const ray=new THREE.Raycaster();
 const rayDir=new THREE.Vector3();
+function segBlocked(a,b){
+  const dx=b.x-a.x, dy=b.y-a.y, dz=b.z-a.z;
+  const len=Math.sqrt(dx*dx+dy*dy+dz*dz);
+  const usable=len-.3;
+  if(usable<=0) return false;
+  const steps=Math.ceil(usable/.15);
+  for(let i=1;i<=steps;i++){
+    const d=i*.15; if(d>usable) break;
+    const t=d/len, px=a.x+dx*t, py=a.y+dy*t, pz=a.z+dz*t;
+    for(let L=Math.max(1,P.lvl-1);L<=Math.min(NF,P.lvl+1);L++){
+      const arr=COL[L]; if(!arr) continue;
+      for(const c of arr){
+        if(c.disabled) continue;
+        if(px>c.x0&&px<c.x1&&py>c.y0&&py<c.y1&&pz>c.z0&&pz<c.z1) return true;
+      }
+    }
+  }
+  return false;
+}
 function updateInteract(){
   P.prompt=null;
   camera.getWorldDirection(rayDir);
@@ -1457,7 +1601,7 @@ function updateInteract(){
   if(hits.length){
     const m=hits[0].object;
     const it=INTER.find(i=>i.mesh===m);
-    if(it) P.prompt=it;
+    if(it&&!segBlocked(camera.position,hits[0].point)) P.prompt=it;
   }
 }
 function promptLabel(it){
@@ -1487,7 +1631,7 @@ function doInteract(){
     case 'door':
       if(!it.open){
         it.open=true; it.col.disabled=true; sfx.doorCreak();
-        doorAnims.push({hinge:it.hinge,target:it.vert?1.9:-1.9});
+        doorAnims.push({hinge:it.hinge,target:it.vert?1.9:(it.side<0?1.9:-1.9)});
       }
       break;
     case 'evidence':{
@@ -1545,10 +1689,11 @@ function updateDoors(dt){
 /* ============ S5：女鬼導演系統＋電影開場＋終章 ============ */
 let staticLv=0, GTEX={}, ghost=null;
 function ghostInit(){
-  for(const k in POSE) GTEX[k]=new THREE.CanvasTexture(POSE[k]);
-  const mat=new THREE.MeshBasicMaterial({map:GTEX.stand,transparent:true,opacity:0,depthWrite:false,side:THREE.DoubleSide});
+  for(const k in POSE) GTEX[k]=ctex1(POSE[k]);
+  const mat=new THREE.MeshBasicMaterial({map:GTEX.stand,transparent:true,opacity:0,depthWrite:false,side:THREE.DoubleSide,alphaTest:.01});
   ghost={mesh:new THREE.Mesh(new THREE.PlaneGeometry(1,1),mat),mat};
   ghost.mesh.visible=false; ghost.mesh.renderOrder=5;
+  ghost.mesh.castShadow=true;
   scene.add(ghost.mesh);
 }
 function ghostShow(pose,w,h,x,y,z){
@@ -1563,6 +1708,8 @@ function ghostFaceCam(){
 function ghostDist(){ return Math.hypot(P.x-ghost.mesh.position.x,P.z-ghost.mesh.position.z); }
 function whisperSet(level,x,z){
   if(!whisperGain||!AC) return;
+  if(level!==0&&Math.abs(level-(whisperSet._l||0))<.02) return;
+  whisperSet._l=level;
   whisperGain.gain.setTargetAtTime(level*.13,AC.currentTime,.15);
   if(whisperPan&&x!==undefined) whisperPan.pan.setTargetAtTime(panOf(x,z),AC.currentTime,.1);
 }
@@ -1645,7 +1792,7 @@ function evDoorPeek(){
     ghost.mesh.rotation.y=(side>0?Math.PI:0)+(1.2-ph*.85)*(side>0?1:-1);
     ghost.mesh.position.z=side*(1.0-ph*.25);
     whisperSet(.35*ph,slot,side);
-    if(this.t>2.1) sfx.skitter(panOf(slot,side),.1);
+    if(this.t>2.1&&!this._sk){ this._sk=1; sfx.skitter(panOf(slot,side),.1); }
     if(ghostDist()<3){ vanishFx(false); return true; }
   }};
 }
@@ -1782,7 +1929,7 @@ director.update=function(dt){
     const done=ev.update(dt);
     if(done===true||ev.t>ev.dur){
       if(ev.end) ev.end();
-      ghostHide(); whisperSet(0);
+      ghostHide(); whisperSet(0); hbT=0;
       director.active=null;
       director.cool=Math.max(7,rand(20,36)-collected*2.5);
     }
@@ -1828,10 +1975,10 @@ const SHOTS=[
   tick(t){ if(signLit) signLit.material.opacity=(Math.sin(t*13)>.4||Math.random()<.04)?.85:.06; }},
  /* S3 大廳櫃台 */
  {dur:8,env:'int',lvl:1,sub:NARR[2],cam(t){ camLerp(t,[0,1.7,4.8],[0,1.5,-1.4],[0,1.1,-3.4],[0,1.1,-3.4]); },
-  onStart(){ chandLight.intensity=.14; }},
+  onStart(){ chandLight.intensity=.3; }},
  /* S4 走進電梯 */
  {dur:7,env:'int',lvl:1,sub:NARR[3],
-  onStart(){ cineCabG.visible=true; cineInd.visible=true; setInd('1'); cineLight.intensity=.45; },
+  onStart(){ cineCabG.visible=true; cineInd.visible=true; setInd('1'); cineLight.intensity=.85; },
   cam(t){ camLerp(t,[0,1.62,-1.6],[0,1.62,1.95],[0,1.55,1.9],[0,1.7,2.6]); },
   tick(t){
     if(t>.18&&!this._d){ this._d=1; sfx.ding(); ELEV[1].target=1; }
@@ -1847,7 +1994,7 @@ const SHOTS=[
   tick(t){
     const fl=Math.min(10,Math.floor(1+t*9.6));
     if(fl!==this._f){ this._f=fl; setInd(String(fl)); playNoise(.18,160,.06,'lowpass'); }
-    cineLight.intensity=(Math.random()<.07?rand(.04,.18):.42)+rand(-.04,.04);
+    cineLight.intensity=(Math.random()<.07?rand(.08,.3):.8)+rand(-.07,.07);
     if(!this._rT||cine.t>this._rT){ this._rT=cine.t+.5; playNoise(.55,90,.05,'lowpass',0,0,.6); }
     if(t>.5&&!this._n2){ this._n2=1; cine.sub=NARR[5]; cine.subT=4.5; narrateTTS(NARR[5]); }
     if(Math.random()<.015) sfx.creak(rand(-1,1));
@@ -1919,8 +2066,8 @@ const SHOTS=[
     winFlicker.visible=true;
     if(ghostWindow) ghostWindow.visible=true;
     giggleFar(rand(-1,1));
-    setTimeout(()=>{ if(state==='cine') giggleFar(rand(-1,1)); },2600);
-    setTimeout(()=>{ if(state==='cine'){ giggleFar(rand(-1,1)); humanScream(700,.6,.06,.2,rand(-1,1)); } },5400);
+    setTimeout(()=>{ if(state==='cine'&&!document.hidden) giggleFar(rand(-1,1)); },2600);
+    setTimeout(()=>{ if(state==='cine'&&!document.hidden){ giggleFar(rand(-1,1)); humanScream(700,.6,.06,.2,rand(-1,1)); } },5400);
   },
   cam(t){ camLerp(t,[16,8,30],[48,26,68],[0,15,0],[0,15,0]); },
   tick(t){
@@ -1992,8 +2139,10 @@ function startCard(){
 const finale={t:0,papers:0,motes:null,started:false};
 function startFinale(){
   state='finale'; finale.t=0; finale.started=true;
-  director.force&&director.active&&director.force({t:0,dur:0,update(){return true;}});
-  ghostHide();
+  P.flashOn=false; flash.intensity=0;
+  if(beam) beam.visible=false;
+  if(director.active){ if(director.active.end) director.active.end(); director.active=null; }
+  ghostHide(); whisperSet(0); hbT=0;
 }
 function finaleUpdate(dt){
   finale.t+=dt;
@@ -2007,7 +2156,9 @@ function finaleUpdate(dt){
   if(t>5&&!finale._mb){ finale._mb=1; musicBox(.06,1); }
   if(t>6.5&&!finale._g){
     finale._g=1;
-    ghostShow('calm',1.0,2.0,dp.x-.6,base+1.02,dp.z+1.4);
+    let gx=dp.x-.6, gz=dp.z+1.4;
+    if(Math.hypot(P.x-gx,P.z-gz)<1.2){ gx=dp.x-1.2; gz=dp.z+2.3; }
+    ghostShow('calm',1.0,2.0,gx,base+1.02,gz);
     cine.sub='「……都找回來了。」'; cine.subT=3;
   }
   if(finale._g&&t<14){
@@ -2031,7 +2182,7 @@ function finaleUpdate(dt){
   }
   if(finale._dis&&!finale._done){
     ghost.mat.opacity=Math.max(0,ghost.mat.opacity-dt*.5);
-    warmLight.intensity=Math.min(1.2,warmLight.intensity+dt*.5);
+    warmLight.intensity=Math.min(2.2,warmLight.intensity+dt*.9);
     if(finale.motes){
       const pos=finale.motes.geometry.attributes.position;
       for(let i=0;i<pos.count;i++) pos.setY(i,pos.getY(i)+dt*.4);
@@ -2065,6 +2216,7 @@ function showCredits(){
 <script>
 /* ============ S6：HUD、狀態機、主迴圈 ============ */
 let state='title', locked=false, interactPulse=false;
+const IS_TOUCH=('ontouchstart' in window)&&(!window.matchMedia||window.matchMedia('(pointer: coarse)').matches);
 let hbT=0, ambT=12, thunderT=rand(25,55), creakT=9, ambFlashT=0;
 const fade={a:1,target:1,speed:1,color:'#000'};
 function fadeSet(a){ fade.a=a; fade.target=a; }
@@ -2079,6 +2231,91 @@ function buildFx(){
     g.putImageData(im,0,0); grainFrames.push(c);
   }
 }
+let post=null;
+const POST_VS='varying vec2 vUv; void main(){ vUv=uv; gl_Position=vec4(position.xy,0.,1.); }';
+const FS_BRIGHT=`varying vec2 vUv; uniform sampler2D t; uniform float th;
+void main(){
+  vec4 c=texture2D(t,vUv);
+  float l=dot(c.rgb,vec3(.299,.587,.114));
+  gl_FragColor=vec4(c.rgb*smoothstep(th,th+.45,l),1.);
+}`;
+const FS_BLUR=`varying vec2 vUv; uniform sampler2D t; uniform vec2 dir;
+void main(){
+  vec3 a=texture2D(t,vUv).rgb*.227;
+  a+=texture2D(t,vUv+dir*1.3846).rgb*.3162;
+  a+=texture2D(t,vUv-dir*1.3846).rgb*.3162;
+  a+=texture2D(t,vUv+dir*3.2308).rgb*.0702;
+  a+=texture2D(t,vUv-dir*3.2308).rgb*.0702;
+  gl_FragColor=vec4(a,1.);
+}`;
+const FS_COMP=`varying vec2 vUv; uniform sampler2D tS; uniform sampler2D tB;
+uniform float time; uniform float bloomStr; uniform float grainAmt; uniform float exposure;
+float rnd(vec2 p){ return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453); }
+vec3 aces(vec3 x){
+  return clamp((x*(2.51*x+.03))/(x*(2.43*x+.59)+.14),0.,1.);
+}
+void main(){
+  vec2 uv=vUv;
+  vec2 off=(uv-.5)*.0016;
+  vec3 col;
+  col.r=texture2D(tS,uv-off).r;
+  col.g=texture2D(tS,uv).g;
+  col.b=texture2D(tS,uv+off).b;
+  col+=texture2D(tB,uv).rgb*bloomStr;
+  col=aces(col*exposure);
+  float l=dot(col,vec3(.299,.587,.114));
+  col=mix(col*vec3(.9,.97,1.12)+vec3(.004,.006,.014),col*vec3(1.07,1.0,.92),smoothstep(.1,.65,l));
+  float d=distance(uv,vec2(.5));
+  col*=1.-smoothstep(.42,.86,d)*.5;
+  col+=(rnd(uv*vec2(1387.,919.)+mod(time,11.))-.5)*grainAmt;
+  col=pow(max(col,0.),vec3(1./2.2));
+  gl_FragColor=vec4(col,1.);
+}`;
+function makePost(){
+  if(window.__SMOKE__) return null;
+  const cam2=new THREE.OrthographicCamera(-1,1,1,-1,0,1);
+  const quad=new THREE.PlaneGeometry(2,2);
+  function pass(fs,uni){
+    const m=new THREE.ShaderMaterial({vertexShader:POST_VS,fragmentShader:fs,uniforms:uni,depthTest:false,depthWrite:false});
+    const sc=new THREE.Scene(); sc.add(new THREE.Mesh(quad,m));
+    return {sc,m};
+  }
+  const P2={scale:1,rtS:null,rtA:null,rtB:null};
+  P2.bright=pass(FS_BRIGHT,{t:{value:null},th:{value:.82}});
+  P2.blur=pass(FS_BLUR,{t:{value:null},dir:{value:new THREE.Vector2()}});
+  P2.comp=pass(FS_COMP,{tS:{value:null},tB:{value:null},time:{value:0},
+    bloomStr:{value:.75},grainAmt:{value:.045},exposure:{value:1.25}});
+  P2.build=function(w,h){
+    if(P2.rtS){ P2.rtS.dispose(); P2.rtA.dispose(); P2.rtB.dispose(); }
+    const gl2=renderer.capabilities&&renderer.capabilities.isWebGL2;
+    const ms=gl2?4:0, ht=gl2?THREE.HalfFloatType:THREE.UnsignedByteType;
+    P2.rtS=new THREE.WebGLRenderTarget(w,h,{type:ht,samples:ms});
+    P2.rtA=new THREE.WebGLRenderTarget(w>>1,h>>1,{type:ht});
+    P2.rtB=new THREE.WebGLRenderTarget(w>>1,h>>1,{type:ht});
+    P2.w=w; P2.h=h;
+  };
+  P2.render=function(now){
+    renderer.setRenderTarget(P2.rtS);
+    renderer.render(scene,camera);
+    P2.bright.m.uniforms.t.value=P2.rtS.texture;
+    renderer.setRenderTarget(P2.rtA); renderer.render(P2.bright.sc,cam2);
+    const bw=P2.w>>1,bh=P2.h>>1;
+    for(const sc2 of [1,2.2]){
+      P2.blur.m.uniforms.t.value=P2.rtA.texture;
+      P2.blur.m.uniforms.dir.value.set(sc2/bw,0);
+      renderer.setRenderTarget(P2.rtB); renderer.render(P2.blur.sc,cam2);
+      P2.blur.m.uniforms.t.value=P2.rtB.texture;
+      P2.blur.m.uniforms.dir.value.set(0,sc2/bh);
+      renderer.setRenderTarget(P2.rtA); renderer.render(P2.blur.sc,cam2);
+    }
+    P2.comp.m.uniforms.tS.value=P2.rtS.texture;
+    P2.comp.m.uniforms.tB.value=P2.rtA.texture;
+    P2.comp.m.uniforms.time.value=now;
+    renderer.setRenderTarget(null);
+    renderer.render(P2.comp.sc,cam2);
+  };
+  return P2;
+}
 function buildVig(w,h){
   vigCanvas=mkCanvas(w,h);
   const g=vigCanvas.getContext('2d');
@@ -2092,12 +2329,16 @@ function resize(){
   camera.aspect=w/h; camera.updateProjectionMatrix();
   fxC.width=w; fxC.height=h;
   buildVig(w,h);
+  if(post){
+    const pr=Math.min(window.devicePixelRatio||1,1.5)*post.scale;
+    post.build(Math.max(2,(w*pr)|0),Math.max(2,(h*pr)|0));
+  }
 }
 function drawFx(dt){
   const W=fxC.width, H=fxC.height, g=fxg;
   g.clearRect(0,0,W,H);
   const inCine=(state==='cine'||state==='card');
-  const grain=.10+staticLv*.5+(state==='play'&&!P.flashOn?.07:0);
+  const grain=(post?0:.10)+staticLv*.5+(state==='play'&&!P.flashOn?(post?.04:.07):0);
   g.globalAlpha=clamp(grain,0,.7);
   g.drawImage(grainFrames[(Math.random()*4)|0],0,0,W,H);
   g.globalAlpha=1;
@@ -2113,6 +2354,12 @@ function drawFx(dt){
       g.fillText('—— '+cine.label+' ——',W/2,bar*.4);
       g.textAlign='left';
     }
+    if(state==='cine'){
+      g.font=`${Math.max(11,H*.017)|0}px "Noto Sans TC",sans-serif`;
+      g.fillStyle='rgba(140,134,120,.5)'; g.textAlign='right'; g.textBaseline='top';
+      g.fillText(IS_TOUCH?'雙擊畫面跳過 ▸▸':'Enter 跳過 ▸▸',W-18,H-bar*.62);
+      g.textAlign='left';
+    }
   }
   g.textBaseline='top';
   if(cine.subT>0&&(state==='cine'||state==='finale')){
@@ -2120,17 +2367,6 @@ function drawFx(dt){
     g.textAlign='center';
     g.fillStyle=`rgba(222,216,200,${clamp(cine.subT,0,1)})`;
     g.fillText(cine.sub,W/2,H-H*.11-Math.max(26,H*.05));
-    g.textAlign='left';
-  }
-  if(state==='card'){
-    const a1=clamp(cardT/1.2,0,1)*clamp((3.6-cardT)/.8,0,1);
-    g.textAlign='center';
-    g.fillStyle=`rgba(190,180,160,${a1})`;
-    g.font=`700 ${Math.max(34,H*.085)|0}px "Noto Sans TC",serif`;
-    g.fillText('十　樓　的　她',W/2,H*.42);
-    g.font=`${Math.max(12,H*.022)|0}px "Noto Sans TC",sans-serif`;
-    g.fillStyle=`rgba(120,114,100,${a1})`;
-    g.fillText('維多利亞大飯店・1972',W/2,H*.55);
     g.textAlign='left';
   }
   if(state==='play'||state==='read'||state==='finale'){
@@ -2144,18 +2380,19 @@ function drawFx(dt){
     g.fillStyle='#8f897d';
     g.fillText(P.lvl===1?'大廳':P.lvl+'F',W/2,12);
     g.textAlign='left';
+    const hudB=IS_TOUCH?H-150:H;
     g.font=`${fs}px "Noto Sans TC",sans-serif`;
     g.fillStyle='#6e6a60';
-    g.fillText(objectiveText(),14,H-fs*2.6);
+    g.fillText(objectiveText(),14,hudB-fs*2.6);
     g.fillStyle='#bfb9aa';
-    g.fillText(`真相 ${collected}/5`,14,H-fs*1.3);
+    g.fillText(`真相 ${collected}/5`,14,hudB-fs*1.3);
     if(P.flashOn===false){ g.fillStyle='#5f5b53'; g.fillText('燈 OFF',W-70,12); }
     if(state==='play'&&P.prompt){
       const lb=promptLabel(P.prompt);
       if(lb){ g.textAlign='center'; g.fillStyle='#d8d2c2';
         g.fillText(lb,W/2,H*.62); g.textAlign='left'; }
     }
-    if(state==='play'&&!locked&&!('ontouchstart' in window)){
+    if(state==='play'&&!locked&&!(IS_TOUCH)){
       g.textAlign='center'; g.fillStyle='rgba(216,210,194,.6)';
       g.fillText('點擊畫面鎖定視角',W/2,H*.7); g.textAlign='left';
     }
@@ -2187,6 +2424,17 @@ function drawFx(dt){
     g.fillStyle=fade.color; g.fillRect(0,0,W,H);
     g.globalAlpha=1;
   }
+  if(state==='card'){
+    const a1=clamp(cardT/1.2,0,1)*clamp((3.6-cardT)/.8,0,1);
+    g.textAlign='center';
+    g.fillStyle=`rgba(190,180,160,${a1})`;
+    g.font=`700 ${Math.max(34,H*.085)|0}px "Noto Sans TC",serif`;
+    g.fillText('十　樓　的　她',W/2,H*.42);
+    g.font=`${Math.max(12,H*.022)|0}px "Noto Sans TC",sans-serif`;
+    g.fillStyle=`rgba(120,114,100,${a1})`;
+    g.fillText('維多利亞大飯店・1972',W/2,H*.55);
+    g.textAlign='left';
+  }
 }
 /* ---- 燈光池與環境 ---- */
 function updateLights(dt,now){
@@ -2203,7 +2451,7 @@ function updateLights(dt,now){
     const s=alive[i];
     if(!s){ L.intensity=0; continue; }
     L.position.set(s.x,base+2.3,s.z);
-    let it=.5+.22*Math.sin(now*2.6+s.flick*7);
+    let it=.95+.4*Math.sin(now*2.6+s.flick*7);
     if(Math.sin(now*.7+s.flick*13)>.97) it*=rand(.1,.5);
     L.intensity=it*flickV;
   }
@@ -2228,7 +2476,8 @@ function updateAmbience(dt){
   creakT-=dt;
   if(creakT<=0){ creakT=rand(7,16); sfx.creak(rand(-1,1)); }
   thunderT-=dt;
-  if(thunderT<=0){ thunderT=rand(28,64); ambFlashT=.5; setTimeout(()=>{ if(AC) sfx.thunder(); },rand(600,2200)); }
+  if(thunderT<=0){ thunderT=rand(28,64); ambFlashT=.5;
+    setTimeout(()=>{ if(AC&&!document.hidden&&(state==='play'||state==='read')) sfx.thunder(); },rand(600,2200)); }
   if(director.active&&ghost&&ghost.mesh.visible){
     const d=ghostDist();
     if(d<7){ hbT-=dt;
@@ -2263,7 +2512,7 @@ function updateWorldFx(dt,now){
 /* ---- 流程 ---- */
 function startPlay(){
   state='play';
-  chandLight.intensity=.14;
+  chandLight.intensity=.3;
   P.x=0; P.z=4.6; P.yaw=0; P.pitch=0; P.lvl=1; P.feetY=0; P.flashOn=true;
   playT=0;
   scene.fog.density=.075; amb.intensity=.5;
@@ -2271,7 +2520,7 @@ function startPlay(){
   fadeSet(1); fadeTo(0,.7);
   setTimeout(()=>{ if(state==='play'){ sfx.slam(0); showMsg('身後的大門，自己關上了。',3.5); } },1600);
   setTimeout(()=>{ if(state==='play') showMsg('（攝影機開始錄影。先去櫃台後面的辦公室看看。）',5); },5200);
-  if(!('ontouchstart' in window)&&renderer.domElement.requestPointerLock) renderer.domElement.requestPointerLock();
+  if(!(IS_TOUCH)&&renderer.domElement.requestPointerLock) renderer.domElement.requestPointerLock();
 }
 function startGame(){
   audioInit(); if(AC) AC.resume();
@@ -2294,24 +2543,26 @@ function resumeGame(){
   document.getElementById('pause').classList.remove('show');
   if(AC) AC.resume();
   state=pausedFrom;
-  if(!('ontouchstart' in window)&&renderer.domElement.requestPointerLock) renderer.domElement.requestPointerLock();
+  if(!(IS_TOUCH)&&renderer.domElement.requestPointerLock) renderer.domElement.requestPointerLock();
 }
 /* ---- 輸入 ---- */
 document.addEventListener('keydown',e=>{
   keys[e.code]=true;
   if(e.code==='Enter'&&state==='cine') skipCine();
   if(e.code==='KeyF'&&state==='play'){ P.flashOn=!P.flashOn; sfx.flash(); }
-  if(e.code==='KeyE'){
+  if(e.code==='KeyE'&&!e.repeat){
     if(state==='read') closeReading();
     else if(state==='cine') skipCine();
-    else interactPulse=true;
+    else if(state==='play') interactPulse=true;
   }
   if(e.code==='Escape'&&(state==='play'||state==='read')) pauseGame();
   if(['ArrowUp','ArrowDown','Space'].includes(e.code)) e.preventDefault();
 });
 document.addEventListener('keyup',e=>{ keys[e.code]=false; });
+document.addEventListener('pointerdown',()=>{ if(AC&&AC.state!=='running'&&state!=='pause') AC.resume(); });
 document.addEventListener('pointerlockchange',()=>{
   locked=document.pointerLockElement===renderer.domElement;
+  if(!locked&&state==='play') pauseGame();
 });
 document.addEventListener('mousemove',e=>{
   if(locked&&(state==='play'||state==='finale')){
@@ -2322,10 +2573,15 @@ document.addEventListener('mousemove',e=>{
 document.addEventListener('click',e=>{
   if(e.target.closest&&e.target.closest('.overlay,#touchui')) return;
   if(state==='cine'){ skipCine(); return; }
-  if(state==='play'&&!locked&&!('ontouchstart' in window)&&renderer.domElement.requestPointerLock)
+  if(state==='play'&&!locked&&!(IS_TOUCH)&&renderer.domElement.requestPointerLock)
     renderer.domElement.requestPointerLock();
 });
-document.addEventListener('visibilitychange',()=>{ if(document.hidden) pauseGame(); });
+document.addEventListener('visibilitychange',()=>{
+  if(document.hidden){
+    if(state==='play'||state==='read') pauseGame();
+    else{ if(AC) AC.suspend(); stopTTS(); }
+  }else if(state!=='pause'){ if(AC) AC.resume(); }
+});
 const stick=document.getElementById('stick'), knob=document.getElementById('knob');
 let stickTouch=null, lookTouch=null;
 function setupTouch(){
@@ -2336,9 +2592,14 @@ function setupTouch(){
       else if(lookTouch===null&&!(e.target.classList&&e.target.classList.contains('tbtn')))
         lookTouch={id:t.identifier,x:t.clientX,y:t.clientY};
     }
-    if(state==='cine') skipCine();
+    if(state==='cine'){
+      const n2=Date.now();
+      if(n2-(setupTouch._tap||0)<400) skipCine();
+      setupTouch._tap=n2;
+    }
   },{passive:true});
   window.addEventListener('touchmove',e=>{
+    if(state!=='play'&&state!=='finale') return;
     for(const t of e.changedTouches){
       if(t.identifier===stickTouch) moveStick(t);
       else if(lookTouch&&t.identifier===lookTouch.id){
@@ -2349,12 +2610,14 @@ function setupTouch(){
     }
     e.preventDefault();
   },{passive:false});
-  window.addEventListener('touchend',e=>{
+  const touchEnd=e=>{
     for(const t of e.changedTouches){
       if(t.identifier===stickTouch){ stickTouch=null; touchMove={x:0,y:0}; knob.style.left='40px'; knob.style.top='40px'; }
       if(lookTouch&&t.identifier===lookTouch.id) lookTouch=null;
     }
-  },{passive:true});
+  };
+  window.addEventListener('touchend',touchEnd,{passive:true});
+  window.addEventListener('touchcancel',touchEnd,{passive:true});
   function moveStick(t){
     const r=stick.getBoundingClientRect(), cx=r.left+60, cy=r.top+60;
     let dx=(t.clientX-cx)/50, dy=(t.clientY-cy)/50;
@@ -2364,12 +2627,14 @@ function setupTouch(){
   }
   const hold=(id,on,off)=>{ const el=document.getElementById(id);
     el.addEventListener('touchstart',e=>{e.preventDefault();on();},{passive:false});
-    if(off) el.addEventListener('touchend',e=>{e.preventDefault();off();},{passive:false}); };
+    if(off){ el.addEventListener('touchend',e=>{e.preventDefault();off();},{passive:false});
+      el.addEventListener('touchcancel',e=>{off();},{passive:false}); } };
   hold('btnRun',()=>P.run=true,()=>P.run=false);
   hold('btnLight',()=>{ if(state==='play'){P.flashOn=!P.flashOn; sfx.flash();} });
   hold('btnE',()=>{ if(state==='read') closeReading(); else interactPulse=true; });
+  hold('btnPause',()=>{ if(state==='play'||state==='read') pauseGame(); });
 }
-if('ontouchstart' in window) setupTouch();
+if(IS_TOUCH) setupTouch();
 document.getElementById('btnStart').addEventListener('click',startGame);
 document.getElementById('btnAgain').addEventListener('click',()=>{ location.reload(); });
 document.getElementById('btnResume').addEventListener('click',resumeGame);
@@ -2398,7 +2663,7 @@ function loop(ts){
     updateWorldFx(dt,now);
     setLevelVis(P.lvl,false);
   }
-  else if(state==='read'){ updateLights(dt,now); updateWorldFx(dt,now); }
+  else if(state==='read'){ director.update(dt); updateAmbience(dt); updateLights(dt,now); updateWorldFx(dt,now); }
   else if(state==='finale'){
     playT+=dt;
     camera.rotation.order='YXZ';
@@ -2409,12 +2674,19 @@ function loop(ts){
     interactPulse=false;
   }
   if(state!=='title'&&state!=='credits'&&state!=='pause'){
-    renderer.render(scene,camera);
+    if(post) post.render(now);
+    else renderer.render(scene,camera);
     drawFx(dt);
+    perfEMA=perfEMA*.95+dt*.05;
+    if(post&&post.scale>.7&&perfEMA>.03){
+      perfSlow+=dt;
+      if(perfSlow>3){ post.scale=.7; resize(); perfSlow=-999; }
+    }else if(perfSlow>0) perfSlow=Math.max(0,perfSlow-dt);
   }
 }
+let perfEMA=.016, perfSlow=0;
 /* ---- 初始化 ---- */
-initScene(); buildAll(); ghostInit(); buildFx(); resize();
+initScene(); buildAll(); ghostInit(); buildFx(); post=makePost(); resize();
 camera.position.set(0,1.6,4.6);
 setLevelVis(1,false);
 requestAnimationFrame(loop);

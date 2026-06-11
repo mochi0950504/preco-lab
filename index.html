@@ -24,6 +24,7 @@
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html { scroll-behavior: smooth; }
+  section[id], header[id] { scroll-margin-top: 80px; }
   body {
     background: var(--bg);
     color: var(--ink);
@@ -47,6 +48,7 @@
   nav.top {
     position: sticky; top: 0; z-index: 50;
     background: rgba(245, 241, 234, 0.88);
+    -webkit-backdrop-filter: blur(12px);
     backdrop-filter: blur(12px);
     border-bottom: 1px solid var(--border-soft);
   }
@@ -606,10 +608,7 @@
     .demo-stage.playing .product-arrow {
       animation: none !important;
       opacity: 1 !important;
-      transform: none !important;
     }
-    .demo-report { transform: translate(-50%, -50%) !important; }
-    .persona-more { transform: translateX(-50%) !important; }
   }
 
   @media (max-width: 720px) {
@@ -959,6 +958,10 @@
     <div class="logo">
       <span class="logo-mark">P</span>
       <span>Preco Lab</span>
+    </div>
+    <div style="display:flex; gap:18px; align-items:center;">
+      <a href="game.html" style="color:inherit; opacity:.65; text-decoration:none;">🎮 地下三樓</a>
+      <a href="hotel.html" style="color:inherit; opacity:.65; text-decoration:none;">🏨 十樓的她</a>
     </div>
     <div>© 2026 Preco Lab · All rights reserved.</div>
   </div>
