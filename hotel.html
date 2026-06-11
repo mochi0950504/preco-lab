@@ -1042,11 +1042,11 @@ function buildShaft(parent,lvl,sideX){
       const h=(i+1)*.17;
       box(parent,MAT.dark,M(16.0),base+h/2,-1.0-(i+.5)*.22,1.36,h,.22,{col:false});
       const h2=1.7+(i+1)*.17;
-      box(parent,MAT.dark,M(13.8),base+h2/2,-3.2+(i+.5)*.22,1.36,h2,.22,{col:false});
+      box(parent,MAT.dark,M(13.95),base+h2/2,-3.2+(i+.5)*.22,1.7,h2,.22,{col:false});
     }
     box(parent,MAT.dark,M(14.9),base+1.7-.12,-3.7,3.4,.25,.96,{col:false});
     STAIRZ.push({lvl,x0:Math.min(M(15.3),M(16.7)),x1:Math.max(M(15.3),M(16.7)),z0:-3.2,z1:-1.0,h0:1.7,h1:0});
-    STAIRZ.push({lvl,x0:Math.min(M(13.1),M(14.5)),x1:Math.max(M(13.1),M(14.5)),z0:-3.2,z1:-1.0,h0:1.7,h1:3.4});
+    STAIRZ.push({lvl,x0:Math.min(M(13.1),M(14.82)),x1:Math.max(M(13.1),M(14.82)),z0:-3.2,z1:-1.0,h0:1.7,h1:3.4});
     STAIRZ.push({lvl,x0:Math.min(M(13.1),M(16.7)),x1:Math.max(M(13.1),M(16.7)),z0:-4.2,z1:-3.2,h0:1.7,h1:1.7});
     box(parent,wall,M(15.0),base+1.65,-2.1,.3,3.3,2.2,{lvl});
   }
@@ -1059,10 +1059,12 @@ function buildShaft(parent,lvl,sideX){
   box(parent,wall,M(13.0),base+2.95,.1,.16,1.0,2.3,{col:false});
   plane(parent,MAT.winGlow,1.1,1.9,M(16.78),base+1.9,-1.5,S>0?-Math.PI/2:Math.PI/2);
   if(lvl===NF){
-    const m=plane(parent,new THREE.MeshLambertMaterial({map:TX.doorB}),1.0,2.2,M(15.5),base+1.1,-4.18,0);
+    box(parent,wall,M(15.75),base+FH/2,-1.06,2.3,FH,.14,{lvl});
+    box(parent,wall,M(14.62),base+FH/2,-2.1,.14,FH,2.2,{lvl});
+    const m=plane(parent,new THREE.MeshLambertMaterial({map:TX.doorB}),1.0,2.2,M(15.75),base+1.1,-.98,0);
     INTER.push({mesh:m,type:'roofdoor'});
-    box(parent,MAT.dark,M(14.6),base+.12,-3.9,.13,.1,.3,{col:false});
-    const shoe1=box(parent,MAT.dark,M(14.52),base+.07,-3.86,.1,.07,.26,{col:false});
+    box(parent,MAT.dark,M(15.62),base+.07,-.7,.13,.1,.3,{col:false});
+    const shoe1=box(parent,MAT.dark,M(15.45),base+.07,-.7,.1,.07,.26,{col:false});
     INTER.push({mesh:shoe1,type:'shoes'});
   }
 }
@@ -1201,7 +1203,7 @@ function buildFloor(lvl){
     plane(G,MAT.marbleD,3.8,2.2,-14.9,base+.005,.1,0,-Math.PI/2);
   }
   if(lvl===NF){
-    const wm=box(G,MAT.wall,0,base+FH/2,-1.18,3.2,FH,.2,{col:false});
+    const wm=box(G,MAT.wall,0,base+FH/2,-1.18,3.2,FH,.14,{col:false});
     wm.material=new THREE.MeshLambertMaterial({map:TX.door1013w});
     room1013.wallMesh=wm;
     room1013.wallCol=addCol(lvl,0,base+1.5,-1.18,3.2,FH,.4);
@@ -1252,6 +1254,8 @@ function buildLobby(){
   plane(G,MAT.marble,34.4,12.8,0,.005,0,0,-Math.PI/2);
   plane(G,MAT.ceil,34.4,12.8,0,3.18,0,0,Math.PI/2);
   box(G,MAT.wall,0,FH/2,-6.1,34.6,FH,.2,{lvl:1});
+  box(G,MAT.wall,17.2,FH/2,0,.2,FH,12.6,{lvl:1});
+  box(G,MAT.wall,-17.2,FH/2,0,.2,FH,12.6,{lvl:1});
   box(G,MAT.wall,-9.1,FH/2,6.1,16.2,FH,.2,{lvl:1});
   box(G,MAT.wall,9.1,FH/2,6.1,16.2,FH,.2,{lvl:1});
   box(G,MAT.wall,0,2.85,6.1,2.0,1.1,.2,{col:false});
@@ -1494,7 +1498,6 @@ const EVID=[
   text:['《中央日報》1972.11.6','『飯店房務員監守自盜　畏罪墜樓』','','（紅筆批註，字跡用力到劃破紙面：）','','『她的鞋，整整齊齊擺在天台門的內側。','　要跳樓的人，','　會把鞋擺在門的裡面嗎？','　她是被人追上天台的。』'],
   hint:'九樓布草間。她的東西還在那裡。'},
  {id:4,lvl:9,room:{slot:11.2,side:-1},kind:'linen',doorLabel:'布草間',title:'她的日記・最後一頁',got:false,
-  px:10.6,pz:-5.0,
   text:['（日記・最後一頁）','','11 月 2 日　晴','','下個月領了薪水，就能給弟弟','買過冬的鞋了。','經理今天又對著新來的罵了一下午，','忍一忍，做滿這一年就回家。','','媽，再等我一下下。'],
   hint:'十樓。去找那個不存在的房間。'}
 ];
@@ -1519,6 +1522,7 @@ function tryMove(nx,nz){
 }
 function stepMat(){
   if(P.onStair) return 'stair';
+  if(Math.abs(P.x)>13) return 'stair';
   if(P.lvl===1) return (P.x<-8.1&&P.z<-2.5)?'wood':'marble';
   return Math.abs(P.z)<1.15?'carpet':'wood';
 }
@@ -1562,6 +1566,25 @@ function updatePlayer(dt){
 let flickV=1, flickT=0;
 const ray=new THREE.Raycaster();
 const rayDir=new THREE.Vector3();
+function segBlocked(a,b){
+  const dx=b.x-a.x, dy=b.y-a.y, dz=b.z-a.z;
+  const len=Math.sqrt(dx*dx+dy*dy+dz*dz);
+  const usable=len-.3;
+  if(usable<=0) return false;
+  const steps=Math.ceil(usable/.15);
+  for(let i=1;i<=steps;i++){
+    const d=i*.15; if(d>usable) break;
+    const t=d/len, px=a.x+dx*t, py=a.y+dy*t, pz=a.z+dz*t;
+    for(let L=Math.max(1,P.lvl-1);L<=Math.min(NF,P.lvl+1);L++){
+      const arr=COL[L]; if(!arr) continue;
+      for(const c of arr){
+        if(c.disabled) continue;
+        if(px>c.x0&&px<c.x1&&py>c.y0&&py<c.y1&&pz>c.z0&&pz<c.z1) return true;
+      }
+    }
+  }
+  return false;
+}
 function updateInteract(){
   P.prompt=null;
   camera.getWorldDirection(rayDir);
@@ -1572,7 +1595,7 @@ function updateInteract(){
   if(hits.length){
     const m=hits[0].object;
     const it=INTER.find(i=>i.mesh===m);
-    if(it) P.prompt=it;
+    if(it&&!segBlocked(camera.position,hits[0].point)) P.prompt=it;
   }
 }
 function promptLabel(it){
@@ -1602,7 +1625,7 @@ function doInteract(){
     case 'door':
       if(!it.open){
         it.open=true; it.col.disabled=true; sfx.doorCreak();
-        doorAnims.push({hinge:it.hinge,target:it.vert?1.9:-1.9});
+        doorAnims.push({hinge:it.hinge,target:it.vert?1.9:(it.side<0?1.9:-1.9)});
       }
       break;
     case 'evidence':{
@@ -1761,7 +1784,7 @@ function evDoorPeek(){
     ghost.mesh.rotation.y=(side>0?Math.PI:0)+(1.2-ph*.85)*(side>0?1:-1);
     ghost.mesh.position.z=side*(1.0-ph*.25);
     whisperSet(.35*ph,slot,side);
-    if(this.t>2.1) sfx.skitter(panOf(slot,side),.1);
+    if(this.t>2.1&&!this._sk){ this._sk=1; sfx.skitter(panOf(slot,side),.1); }
     if(ghostDist()<3){ vanishFx(false); return true; }
   }};
 }
@@ -1898,7 +1921,7 @@ director.update=function(dt){
     const done=ev.update(dt);
     if(done===true||ev.t>ev.dur){
       if(ev.end) ev.end();
-      ghostHide(); whisperSet(0);
+      ghostHide(); whisperSet(0); hbT=0;
       director.active=null;
       director.cool=Math.max(7,rand(20,36)-collected*2.5);
     }
@@ -2110,8 +2133,8 @@ function startFinale(){
   state='finale'; finale.t=0; finale.started=true;
   P.flashOn=false; flash.intensity=0;
   if(beam) beam.visible=false;
-  director.force&&director.active&&director.force({t:0,dur:0,update(){return true;}});
-  ghostHide();
+  if(director.active){ if(director.active.end) director.active.end(); director.active=null; }
+  ghostHide(); whisperSet(0); hbT=0;
 }
 function finaleUpdate(dt){
   finale.t+=dt;
@@ -2125,7 +2148,9 @@ function finaleUpdate(dt){
   if(t>5&&!finale._mb){ finale._mb=1; musicBox(.06,1); }
   if(t>6.5&&!finale._g){
     finale._g=1;
-    ghostShow('calm',1.0,2.0,dp.x-.6,base+1.02,dp.z+1.4);
+    let gx=dp.x-.6, gz=dp.z+1.4;
+    if(Math.hypot(P.x-gx,P.z-gz)<1.2){ gx=dp.x-1.2; gz=dp.z+2.3; }
+    ghostShow('calm',1.0,2.0,gx,base+1.02,gz);
     cine.sub='「……都找回來了。」'; cine.subT=3;
   }
   if(finale._g&&t<14){
@@ -2183,6 +2208,7 @@ function showCredits(){
 <script>
 /* ============ S6：HUD、狀態機、主迴圈 ============ */
 let state='title', locked=false, interactPulse=false;
+const IS_TOUCH=('ontouchstart' in window)&&(!window.matchMedia||window.matchMedia('(pointer: coarse)').matches);
 let hbT=0, ambT=12, thunderT=rand(25,55), creakT=9, ambFlashT=0;
 const fade={a:1,target:1,speed:1,color:'#000'};
 function fadeSet(a){ fade.a=a; fade.target=a; }
@@ -2329,17 +2355,6 @@ function drawFx(dt){
     g.fillText(cine.sub,W/2,H-H*.11-Math.max(26,H*.05));
     g.textAlign='left';
   }
-  if(state==='card'){
-    const a1=clamp(cardT/1.2,0,1)*clamp((3.6-cardT)/.8,0,1);
-    g.textAlign='center';
-    g.fillStyle=`rgba(190,180,160,${a1})`;
-    g.font=`700 ${Math.max(34,H*.085)|0}px "Noto Sans TC",serif`;
-    g.fillText('十　樓　的　她',W/2,H*.42);
-    g.font=`${Math.max(12,H*.022)|0}px "Noto Sans TC",sans-serif`;
-    g.fillStyle=`rgba(120,114,100,${a1})`;
-    g.fillText('維多利亞大飯店・1972',W/2,H*.55);
-    g.textAlign='left';
-  }
   if(state==='play'||state==='read'||state==='finale'){
     const fs=Math.max(12,H*.02)|0;
     g.font=`${fs}px monospace`;
@@ -2362,7 +2377,7 @@ function drawFx(dt){
       if(lb){ g.textAlign='center'; g.fillStyle='#d8d2c2';
         g.fillText(lb,W/2,H*.62); g.textAlign='left'; }
     }
-    if(state==='play'&&!locked&&!('ontouchstart' in window)){
+    if(state==='play'&&!locked&&!(IS_TOUCH)){
       g.textAlign='center'; g.fillStyle='rgba(216,210,194,.6)';
       g.fillText('點擊畫面鎖定視角',W/2,H*.7); g.textAlign='left';
     }
@@ -2393,6 +2408,17 @@ function drawFx(dt){
     g.globalAlpha=clamp(fade.a,0,1);
     g.fillStyle=fade.color; g.fillRect(0,0,W,H);
     g.globalAlpha=1;
+  }
+  if(state==='card'){
+    const a1=clamp(cardT/1.2,0,1)*clamp((3.6-cardT)/.8,0,1);
+    g.textAlign='center';
+    g.fillStyle=`rgba(190,180,160,${a1})`;
+    g.font=`700 ${Math.max(34,H*.085)|0}px "Noto Sans TC",serif`;
+    g.fillText('十　樓　的　她',W/2,H*.42);
+    g.font=`${Math.max(12,H*.022)|0}px "Noto Sans TC",sans-serif`;
+    g.fillStyle=`rgba(120,114,100,${a1})`;
+    g.fillText('維多利亞大飯店・1972',W/2,H*.55);
+    g.textAlign='left';
   }
 }
 /* ---- 燈光池與環境 ---- */
@@ -2478,7 +2504,7 @@ function startPlay(){
   fadeSet(1); fadeTo(0,.7);
   setTimeout(()=>{ if(state==='play'){ sfx.slam(0); showMsg('身後的大門，自己關上了。',3.5); } },1600);
   setTimeout(()=>{ if(state==='play') showMsg('（攝影機開始錄影。先去櫃台後面的辦公室看看。）',5); },5200);
-  if(!('ontouchstart' in window)&&renderer.domElement.requestPointerLock) renderer.domElement.requestPointerLock();
+  if(!(IS_TOUCH)&&renderer.domElement.requestPointerLock) renderer.domElement.requestPointerLock();
 }
 function startGame(){
   audioInit(); if(AC) AC.resume();
@@ -2501,17 +2527,17 @@ function resumeGame(){
   document.getElementById('pause').classList.remove('show');
   if(AC) AC.resume();
   state=pausedFrom;
-  if(!('ontouchstart' in window)&&renderer.domElement.requestPointerLock) renderer.domElement.requestPointerLock();
+  if(!(IS_TOUCH)&&renderer.domElement.requestPointerLock) renderer.domElement.requestPointerLock();
 }
 /* ---- 輸入 ---- */
 document.addEventListener('keydown',e=>{
   keys[e.code]=true;
   if(e.code==='Enter'&&state==='cine') skipCine();
   if(e.code==='KeyF'&&state==='play'){ P.flashOn=!P.flashOn; sfx.flash(); }
-  if(e.code==='KeyE'){
+  if(e.code==='KeyE'&&!e.repeat){
     if(state==='read') closeReading();
     else if(state==='cine') skipCine();
-    else interactPulse=true;
+    else if(state==='play') interactPulse=true;
   }
   if(e.code==='Escape'&&(state==='play'||state==='read')) pauseGame();
   if(['ArrowUp','ArrowDown','Space'].includes(e.code)) e.preventDefault();
@@ -2519,6 +2545,7 @@ document.addEventListener('keydown',e=>{
 document.addEventListener('keyup',e=>{ keys[e.code]=false; });
 document.addEventListener('pointerlockchange',()=>{
   locked=document.pointerLockElement===renderer.domElement;
+  if(!locked&&state==='play') pauseGame();
 });
 document.addEventListener('mousemove',e=>{
   if(locked&&(state==='play'||state==='finale')){
@@ -2529,10 +2556,15 @@ document.addEventListener('mousemove',e=>{
 document.addEventListener('click',e=>{
   if(e.target.closest&&e.target.closest('.overlay,#touchui')) return;
   if(state==='cine'){ skipCine(); return; }
-  if(state==='play'&&!locked&&!('ontouchstart' in window)&&renderer.domElement.requestPointerLock)
+  if(state==='play'&&!locked&&!(IS_TOUCH)&&renderer.domElement.requestPointerLock)
     renderer.domElement.requestPointerLock();
 });
-document.addEventListener('visibilitychange',()=>{ if(document.hidden) pauseGame(); });
+document.addEventListener('visibilitychange',()=>{
+  if(document.hidden){
+    if(state==='play'||state==='read') pauseGame();
+    else{ if(AC) AC.suspend(); stopTTS(); }
+  }else if(state!=='pause'){ if(AC) AC.resume(); }
+});
 const stick=document.getElementById('stick'), knob=document.getElementById('knob');
 let stickTouch=null, lookTouch=null;
 function setupTouch(){
@@ -2556,12 +2588,14 @@ function setupTouch(){
     }
     e.preventDefault();
   },{passive:false});
-  window.addEventListener('touchend',e=>{
+  const touchEnd=e=>{
     for(const t of e.changedTouches){
       if(t.identifier===stickTouch){ stickTouch=null; touchMove={x:0,y:0}; knob.style.left='40px'; knob.style.top='40px'; }
       if(lookTouch&&t.identifier===lookTouch.id) lookTouch=null;
     }
-  },{passive:true});
+  };
+  window.addEventListener('touchend',touchEnd,{passive:true});
+  window.addEventListener('touchcancel',touchEnd,{passive:true});
   function moveStick(t){
     const r=stick.getBoundingClientRect(), cx=r.left+60, cy=r.top+60;
     let dx=(t.clientX-cx)/50, dy=(t.clientY-cy)/50;
@@ -2571,12 +2605,13 @@ function setupTouch(){
   }
   const hold=(id,on,off)=>{ const el=document.getElementById(id);
     el.addEventListener('touchstart',e=>{e.preventDefault();on();},{passive:false});
-    if(off) el.addEventListener('touchend',e=>{e.preventDefault();off();},{passive:false}); };
+    if(off){ el.addEventListener('touchend',e=>{e.preventDefault();off();},{passive:false});
+      el.addEventListener('touchcancel',e=>{off();},{passive:false}); } };
   hold('btnRun',()=>P.run=true,()=>P.run=false);
   hold('btnLight',()=>{ if(state==='play'){P.flashOn=!P.flashOn; sfx.flash();} });
   hold('btnE',()=>{ if(state==='read') closeReading(); else interactPulse=true; });
 }
-if('ontouchstart' in window) setupTouch();
+if(IS_TOUCH) setupTouch();
 document.getElementById('btnStart').addEventListener('click',startGame);
 document.getElementById('btnAgain').addEventListener('click',()=>{ location.reload(); });
 document.getElementById('btnResume').addEventListener('click',resumeGame);
@@ -2605,7 +2640,7 @@ function loop(ts){
     updateWorldFx(dt,now);
     setLevelVis(P.lvl,false);
   }
-  else if(state==='read'){ updateLights(dt,now); updateWorldFx(dt,now); }
+  else if(state==='read'){ director.update(dt); updateAmbience(dt); updateLights(dt,now); updateWorldFx(dt,now); }
   else if(state==='finale'){
     playT+=dt;
     camera.rotation.order='YXZ';
