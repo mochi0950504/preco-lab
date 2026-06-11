@@ -943,7 +943,7 @@ function initScene(){
   scene=new THREE.Scene();
   scene.background=new THREE.Color(0x000000);
   scene.fog=new THREE.FogExp2(0x000000,.085);
-  camera=new THREE.PerspectiveCamera(72,16/9,.05,260);
+  camera=new THREE.PerspectiveCamera(72,16/9,.075,260);
   renderer=makeRenderer();
   if(!window.__SMOKE__){
     renderer.shadowMap.enabled=true;
@@ -1050,19 +1050,20 @@ function buildShaft(parent,lvl,sideX){
       const h2=1.7+(i+1)*.17;
       box(parent,MAT.dark,M(13.95),base+h2/2,-3.2+(i+.5)*.22,1.7,h2,.22,{col:false});
     }
-    box(parent,MAT.dark,M(14.9),base+1.7-.12,-3.7,3.4,.25,.96,{col:false});
+    box(parent,MAT.dark,M(14.9),base+1.7-.125,-3.7,3.8,.25,.98,{col:false});
     STAIRZ.push({lvl,x0:Math.min(M(15.3),M(16.7)),x1:Math.max(M(15.3),M(16.7)),z0:-3.2,z1:-1.0,h0:1.7,h1:0});
     STAIRZ.push({lvl,x0:Math.min(M(13.1),M(14.82)),x1:Math.max(M(13.1),M(14.82)),z0:-3.2,z1:-1.0,h0:1.7,h1:3.4});
     STAIRZ.push({lvl,x0:Math.min(M(13.1),M(16.7)),x1:Math.max(M(13.1),M(16.7)),z0:-4.2,z1:-3.2,h0:1.7,h1:1.7});
     box(parent,wall,M(15.0),base+1.65,-2.1,.3,3.3,2.2,{lvl});
   }
   if(lvl>1) box(parent,MAT.marbleD,M(14.9),base-.14,.1,3.8,.28,2.2,{col:false});
+
   box(parent,wall,M(16.9),base+FH/2,-1.5,.2,FH,5.6,{lvl});
   box(parent,wall,M(14.9),base+FH/2,-4.3,4.0,FH,.2,{lvl});
   box(parent,wall,M(14.9),base+FH/2,1.3,4.0,FH,.2,{lvl});
   box(parent,wall,M(13.0),base+FH/2,-2.6,.16,FH,3.3,{lvl});
   box(parent,wall,M(13.0),base+FH/2,1.15,.16,FH,.2,{lvl});
-  box(parent,wall,M(13.0),base+2.95,.1,.16,1.0,2.3,{col:false});
+  box(parent,wall,M(13.0),base+2.92,.1,.16,.95,2.3,{col:false});
   plane(parent,MAT.winGlow,1.1,1.9,M(16.78),base+1.9,-1.5,S>0?-Math.PI/2:Math.PI/2);
   if(lvl===NF){
     box(parent,wall,M(15.75),base+FH/2,-1.06,2.3,FH,.14,{lvl});
@@ -1145,6 +1146,7 @@ function buildFloor(lvl){
     const key=slotX+'_'+side;
     const num=roomNo(lvl,side>0?idx:idx+8);
     if(lvl===NF&&side<0&&Math.abs(slotX)<.1) continue;
+    if(side>0&&(idx===3||idx===4)) continue; // 電梯佔位，無 204/205 等鄰門
     if(openRooms[key]){
       const ev=openRooms[key];
       const door=buildDoorway(G,lvl,slotX,side,ev.doorLabel||num);
@@ -1152,9 +1154,9 @@ function buildFloor(lvl){
       const gl=plane(G,new THREE.MeshBasicMaterial({color:0x6e5a30,transparent:true,opacity:.35}),.9,.07,slotX,base+.04,side*1.06,side>0?Math.PI:0);
       ev.doorRef=door;
     }else{
-      const dp=plane(G,boarded?MAT.doorB:MAT.doorL,.92,2.15,slotX,base+1.1,side*(1.1-.005),side>0?Math.PI:0);
+      const dp=plane(G,boarded?MAT.doorB:MAT.doorL,.92,2.15,slotX,base+1.1,side*1.107,side>0?Math.PI:0);
       INTER.push({mesh:dp,type:'locked'});
-      if(!boarded) plane(G,numberPlate(num),.26,.13,slotX,base+2.0,side*(1.1-.01),side>0?Math.PI:0);
+      if(!boarded) plane(G,numberPlate(num),.26,.13,slotX,base+2.0,side*1.105,side>0?Math.PI:0);
     }
   }
   const gapsN=[], gapsS=[{x0:-1.3,x1:1.3}];
@@ -1371,14 +1373,7 @@ function buildExterior(){
   }
   box(G,MAT.brass,-.14,1.5,6.72,.07,.34,.05,{col:false});
   box(G,MAT.brass,.14,1.5,6.72,.07,.34,.05,{col:false});
-  winFlicker=new THREE.Group(); winFlicker.visible=false; G.add(winFlicker);
-  const wfMat=new THREE.MeshBasicMaterial({color:0xc8a96e});
-  for(let r=0;r<NF;r++) for(let c2=0;c2<10;c2++){
-    const wp=new THREE.Mesh(new THREE.PlaneGeometry(1.24,1.85),wfMat);
-    wp.position.set((((c2+.5)/10)-.5)*35.2,r*3.4+1.72,6.63);
-    wp.visible=false;
-    winFlicker.add(wp);
-  }
+
   const signD=plane(G,new THREE.MeshBasicMaterial({map:TX.signD}),8,1.5,0,5.6,6.7,0);
   signLit=plane(G,new THREE.MeshBasicMaterial({map:TX.signL,transparent:true,opacity:0}),8,1.5,0,5.6,6.72,0);
   const moon=plane(G,new THREE.MeshBasicMaterial({color:0xcfd4e2}),9,9,-70,46,-110,0);
@@ -1470,7 +1465,7 @@ function groundAt(x,z,lvlGuess,curY){
   return best;
 }
 function blockedAt(x,z,feetY,lvl){
-  const r=.27;
+  const r=.3;
   for(let L=Math.max(1,lvl-1);L<=Math.min(NF,lvl+1);L++){
     const arr=COL[L]; if(!arr) continue;
     for(const c of arr){
@@ -1552,7 +1547,7 @@ function updatePlayer(dt){
     if(P.stepT<=0){ sfx.step(stepMat(),run); P.stepT=run?.34:.52; }
   }
   const g=groundAt(P.x,P.z,P.lvl,P.feetY);
-  P.feetY=lerp(P.feetY,g.h,Math.min(1,dt*9));
+  P.feetY=lerp(P.feetY,g.h,Math.min(1,dt*(g.onStair?14:9)));
   P.lvl=g.L; P.onStair=g.onStair;
   P.inRoom=P.lvl>1&&Math.abs(P.z)>1.2&&Math.abs(P.x)<13;
   camera.position.set(P.x,P.feetY+1.62+(P.moving?Math.sin(P.bob)*.035:0),P.z);
@@ -1688,22 +1683,214 @@ function updateDoors(dt){
 <script>
 /* ============ S5：女鬼導演系統＋電影開場＋終章 ============ */
 let staticLv=0, GTEX={}, ghost=null;
+/* ============ 3D 女鬼骨架：XYZ 幾何建模＋關節程序動畫 ============
+   結構：root(中心原點) > body > hips > spine > head(臉/髮)
+                                    > 肩L/R > 上臂 > 肘 > 前臂 > 手(爪x4)
+                          > hips    > 髖L/R > 大腿 > 膝 > 小腿
+   姿態模式：stand/calm/crawl/backbend/hang/face(貼臉billboard)
+   慣例與舊billboard一致：直立沿+Y、面向+Z，事件外層旋轉照舊生效 */
+const RIG={};
+function rigLimb(parent,px,py,pz,len,r,mat){
+  const j=new THREE.Group(); j.position.set(px,py,pz); parent.add(j);
+  const seg=new THREE.Mesh(new THREE.CylinderGeometry(r*.82,r,len,7),mat);
+  seg.position.y=-len/2; seg.castShadow=true; j.add(seg);
+  const j2=new THREE.Group(); j2.position.y=-len; j.add(j2);
+  return [j,j2];
+}
 function ghostInit(){
   for(const k in POSE) GTEX[k]=ctex1(POSE[k]);
-  const mat=new THREE.MeshBasicMaterial({map:GTEX.stand,transparent:true,opacity:0,depthWrite:false,side:THREE.DoubleSide,alphaTest:.01});
-  ghost={mesh:new THREE.Mesh(new THREE.PlaneGeometry(1,1),mat),mat};
-  ghost.mesh.visible=false; ghost.mesh.renderOrder=5;
-  ghost.mesh.castShadow=true;
-  scene.add(ghost.mesh);
+  const skin=new THREE.MeshStandardMaterial({color:0xb6b0a2,roughness:.62,transparent:true,opacity:0});
+  const hairM=new THREE.MeshStandardMaterial({color:0x0b090d,roughness:.92,transparent:true,opacity:0});
+  const dressM=new THREE.MeshStandardMaterial({color:0x7a7468,roughness:.95,transparent:true,opacity:0,side:THREE.DoubleSide});
+  const clawM=new THREE.MeshStandardMaterial({color:0x55201a,roughness:.45,metalness:.2,transparent:true,opacity:0});
+  const fc=mkCanvas(128,128);
+  drawGhostHead(fc.getContext('2d'),64,66,3.0,1,true);
+  const faceM=new THREE.MeshBasicMaterial({map:ctex1(fc),transparent:true,opacity:0,alphaTest:.05});
+  RIG.mats=[skin,hairM,dressM,clawM,faceM];
+  const root=new THREE.Group(); root.visible=false; scene.add(root);
+  const body=new THREE.Group(); root.add(body); RIG.body=body;
+  const hips=new THREE.Group(); hips.position.y=-.12; body.add(hips); RIG.hips=hips;
+  const spine=new THREE.Group(); hips.add(spine); RIG.spine=spine;
+  const torso=new THREE.Mesh(new THREE.CylinderGeometry(.125,.15,.52,9),skin);
+  torso.position.y=.27; torso.castShadow=true; spine.add(torso); RIG.torsoMesh=torso;
+  const chest=new THREE.Mesh(new THREE.SphereGeometry(.14,9,7),skin);
+  chest.position.y=.5; chest.castShadow=true; spine.add(chest);
+  const neck=new THREE.Group(); neck.position.y=.58; spine.add(neck); RIG.head=neck;
+  const skull=new THREE.Mesh(new THREE.SphereGeometry(.105,10,8),skin);
+  skull.scale.set(.92,1.22,.96); skull.position.y=.1; skull.castShadow=true; neck.add(skull);
+  const face=new THREE.Mesh(new THREE.PlaneGeometry(.21,.27),faceM);
+  face.position.set(0,.1,.108); neck.add(face);
+  const crown=new THREE.Mesh(new THREE.SphereGeometry(.115,9,7,0,Math.PI*2,0,Math.PI*.62),hairM);
+  crown.position.y=.13; crown.rotation.x=-.4; crown.castShadow=true; neck.add(crown);
+  RIG.hairs=[];
+  for(let i=0;i<12;i++){
+    const a=(i/12)*Math.PI*1.5+Math.PI*.25;
+    const hp=new THREE.Group();
+    hp.position.set(Math.sin(a)*.095,.16,-Math.cos(a)*.07-.012);
+    neck.add(hp);
+    const len=.5+(i%3)*.13;
+    const strand=new THREE.Mesh(new THREE.BoxGeometry(.024,len,.02),hairM);
+    strand.position.y=-len/2; strand.castShadow=true; hp.add(strand);
+    hp.userData={ph:rand(0,6)};
+    RIG.hairs.push(hp);
+  }
+  RIG.armL=rigLimb(spine,-.165,.5,0,.3,.034,skin);
+  RIG.armR=rigLimb(spine,.165,.5,0,.3,.034,skin);
+  RIG.foreL=rigLimb(RIG.armL[1],0,0,0,.3,.029,skin);
+  RIG.foreR=rigLimb(RIG.armR[1],0,0,0,.3,.029,skin);
+  for(const side of ['L','R']){
+    const wrist=RIG['fore'+side][1];
+    const hand=new THREE.Mesh(new THREE.SphereGeometry(.04,7,6),skin);
+    hand.castShadow=true; wrist.add(hand);
+    for(let f=0;f<4;f++){
+      const claw=new THREE.Mesh(new THREE.ConeGeometry(.009,.16,5),clawM);
+      claw.position.set(-.027+f*.018,-.1,0);
+      claw.rotation.x=Math.PI;
+      claw.castShadow=true; wrist.add(claw);
+    }
+  }
+  RIG.legL=rigLimb(hips,-.09,0,0,.42,.05,skin);
+  RIG.legR=rigLimb(hips,.09,0,0,.42,.05,skin);
+  RIG.shinL=rigLimb(RIG.legL[1],0,0,0,.4,.04,skin);
+  RIG.shinR=rigLimb(RIG.legR[1],0,0,0,.4,.04,skin);
+  const dressGeo=new THREE.CylinderGeometry(.17,.36,.92,12,3,true);
+  const dp2=dressGeo.attributes.position;
+  for(let i=0;i<dp2.count;i++){
+    if(dp2.getY(i)<-.38) dp2.setY(i,dp2.getY(i)+rand(-.08,.02));
+    dp2.setX(i,dp2.getX(i)*(1+rand(-.03,.03)));
+  }
+  dressGeo.computeVertexNormals();
+  const dress=new THREE.Mesh(dressGeo,dressM);
+  dress.position.y=-.32; dress.castShadow=true; body.add(dress); RIG.dress=dress;
+  const fp=new THREE.Mesh(new THREE.PlaneGeometry(1,1),
+    new THREE.MeshBasicMaterial({map:GTEX.face,transparent:true,opacity:0,depthWrite:false,side:THREE.DoubleSide}));
+  fp.visible=false; fp.renderOrder=6; scene.add(fp);
+  ghost={mesh:root,facePlane:fp,mode:'stand',cycle:0,twitchT:0,twitchDur:0,
+    mat:{
+      get opacity(){ return RIG.mats[0].opacity; },
+      set opacity(v){ for(const m2 of RIG.mats) m2.opacity=v; fp.material.opacity=v; },
+      get map(){ return null; }, set map(v){}
+    }};
 }
+/* 姿態基準角度表（每影格重設後再疊加動畫——數值即可調教） */
+function applyPose(m){
+  const B=RIG, JJ=(L,x,z)=>{ L[0].rotation.set(x,0,z); };
+  B.body.rotation.set(0,0,0);
+  B.hips.position.y=-.12;
+  B.spine.rotation.set(0,0,0);
+  B.head.rotation.set(.06,0,.22);
+  JJ(B.armL,.05,.12); JJ(B.armR,.05,-.12);
+  B.foreL[0].rotation.set(-.15,0,0); B.foreR[0].rotation.set(-.15,0,0);
+  JJ(B.legL,0,.04); JJ(B.legR,0,-.04);
+  B.shinL[0].rotation.set(.05,0,0); B.shinR[0].rotation.set(.05,0,0);
+  for(const hp of B.hairs) hp.rotation.set(0,0,0);
+  if(m==='calm'){
+    B.head.rotation.set(.36,0,0);
+    JJ(B.armL,.5,.22); JJ(B.armR,.5,-.22);
+    B.foreL[0].rotation.set(-1.2,0,.25); B.foreR[0].rotation.set(-1.2,0,-.25);
+  }else if(m==='crawl'){
+    B.body.rotation.z=-Math.PI/2;
+    B.hips.position.y=0;
+    B.head.rotation.set(0,0,-1.3);
+    JJ(B.armL,0,2.1); JJ(B.armR,0,-2.1);
+    B.armL[0].rotation.y=-1.1; B.armR[0].rotation.y=1.1;
+    B.foreL[0].rotation.set(-1.2,0,0); B.foreR[0].rotation.set(-1.2,0,0);
+    JJ(B.legL,0,1.85); JJ(B.legR,0,-1.85);
+    B.legL[0].rotation.y=-1.0; B.legR[0].rotation.y=1.0;
+    B.shinL[0].rotation.set(-1.3,0,0); B.shinR[0].rotation.set(-1.3,0,0);
+  }else if(m==='backbend'){
+    B.hips.position.y=-.3;
+    B.spine.rotation.x=2.45;
+    B.head.rotation.set(1.5,0,0);
+    JJ(B.armL,2.7,.5); JJ(B.armR,2.7,-.5);
+    B.foreL[0].rotation.set(-.6,0,0); B.foreR[0].rotation.set(-.6,0,0);
+    JJ(B.legL,-1.25,.3); JJ(B.legR,-1.25,-.3);
+    B.shinL[0].rotation.set(1.7,0,0); B.shinR[0].rotation.set(1.7,0,0);
+  }else if(m==='hang'){
+    B.body.rotation.z=Math.PI;
+    B.head.rotation.set(.15,0,.3);
+    JJ(B.armL,.25,.5); JJ(B.armR,.25,-.5);
+    for(const hp of B.hairs) hp.rotation.x=2.9;
+  }
+}
+/* 程序動畫：步態循環＋呼吸＋抽搐＋髮絲搖曳 */
+function ghostAnimate(dt){
+  if(!ghost) return;
+  if(ghost.facePlane.visible){
+    ghost.cycle+=dt;
+    ghost.facePlane.rotation.z=Math.sin(ghost.cycle*40)*.018;
+    return;
+  }
+  if(!ghost.mesh.visible) return;
+  ghost.cycle+=dt;
+  const c=ghost.cycle, B=RIG, m=ghost.mode;
+  applyPose(m);
+  if(m==='stand'){
+    B.spine.rotation.z+=Math.sin(c*.85)*.05;
+    B.head.rotation.z+=Math.sin(c*.6)*.08;
+    B.torsoMesh.scale.y=1+Math.sin(c*2.4)*.02;
+    B.armL[0].rotation.x+=Math.sin(c*1.1)*.06;
+    B.armR[0].rotation.x+=Math.sin(c*1.1+1.7)*.06;
+    ghost.twitchT-=dt;
+    if(ghost.twitchT<=0){ ghost.twitchT=rand(1.6,4); ghost.twitchDur=.16; }
+    if(ghost.twitchDur>0){ ghost.twitchDur-=dt;
+      B.head.rotation.x+=rand(-.16,.16); B.head.rotation.z+=rand(-.2,.2); }
+  }else if(m==='calm'){
+    B.spine.rotation.z+=Math.sin(c*.7)*.02;
+    B.torsoMesh.scale.y=1+Math.sin(c*1.5)*.015;
+  }else if(m==='crawl'){
+    const g2=c*7;
+    B.armL[0].rotation.z+=Math.sin(g2)*.3;
+    B.armR[0].rotation.z+=Math.sin(g2+Math.PI)*-.3;
+    B.foreL[0].rotation.x+=Math.max(0,Math.sin(g2+1.2))*.5;
+    B.foreR[0].rotation.x+=Math.max(0,Math.sin(g2+Math.PI+1.2))*.5;
+    B.legL[0].rotation.z+=Math.sin(g2+Math.PI)*.25;
+    B.legR[0].rotation.z+=Math.sin(g2)*-.25;
+    B.head.rotation.z+=Math.sin(c*13)*.05;
+    B.hips.position.y+=Math.abs(Math.sin(g2*2))*.02;
+  }else if(m==='backbend'){
+    const g2=c*3.4;
+    B.armL[0].rotation.x+=Math.sin(g2)*.4;
+    B.armR[0].rotation.x+=Math.sin(g2+Math.PI)*.4;
+    B.legL[0].rotation.x+=Math.sin(g2+Math.PI)*.35;
+    B.legR[0].rotation.x+=Math.sin(g2)*.35;
+    B.spine.rotation.x+=Math.sin(c*8)*.04;
+    B.head.rotation.z+=Math.sin(c*5)*.15;
+  }else if(m==='hang'){
+    B.body.rotation.z=Math.PI+Math.sin(c*.7)*.06;
+    B.armL[0].rotation.x+=Math.sin(c*.9)*.12;
+    B.armR[0].rotation.x+=Math.sin(c*.9+2)*.12;
+  }
+  for(const hp of B.hairs){
+    hp.rotation.z+=Math.sin(c*1.7+hp.userData.ph)*.06;
+    hp.rotation.x+=Math.sin(c*1.3+hp.userData.ph*1.3)*.05;
+  }
+}
+const POSE2MODE={stand:'stand',crawl:'crawl',backbend:'backbend',hang:'hang',calm:'calm',face:'face'};
 function ghostShow(pose,w,h,x,y,z){
-  ghost.mat.map=GTEX[pose]; ghost.mat.opacity=0;
-  ghost.mesh.scale.set(w,h,1); ghost.mesh.position.set(x,y,z);
-  ghost.mesh.rotation.set(0,0,0); ghost.mesh.visible=true;
+  const mode=POSE2MODE[pose]||'stand';
+  ghost.mode=mode; ghost.cycle=0;
+  ghost.mat.opacity=0;
+  if(mode==='face'){
+    ghost.mesh.visible=false;
+    ghost.facePlane.visible=true;
+    ghost.facePlane.scale.set(w,h,1);
+    ghost.facePlane.position.set(x,y,z);
+    ghost.facePlane.rotation.set(0,0,0);
+    return;
+  }
+  ghost.facePlane.visible=false;
+  const s2=Math.max(w,h)/1.7;
+  ghost.mesh.scale.set(s2,s2,s2);
+  ghost.mesh.position.set(x,y,z);
+  ghost.mesh.rotation.set(0,0,0);
+  ghost.mesh.visible=true;
+  applyPose(mode);
 }
-function ghostHide(){ if(ghost) ghost.mesh.visible=false; }
+function ghostHide(){ if(!ghost) return; ghost.mesh.visible=false; ghost.facePlane.visible=false; }
 function ghostFaceCam(){
-  ghost.mesh.lookAt(camera.position.x,ghost.mesh.position.y,camera.position.z);
+  const m2=(ghost.facePlane&&ghost.facePlane.visible)?ghost.facePlane:ghost.mesh;
+  m2.lookAt(camera.position.x,m2.position.y,camera.position.z);
 }
 function ghostDist(){ return Math.hypot(P.x-ghost.mesh.position.x,P.z-ghost.mesh.position.z); }
 function whisperSet(level,x,z){
@@ -1862,12 +2049,12 @@ function evStairHang(){
 }
 function evLobbyCrawl(){
   const x0=P.x<0?8:-8, x1=-x0*.3;
-  ghostShow('crawl',1.9,1.0,x0,.55,-1.5);
+  ghostShow('crawl',1.9,1.0,x0,.45,-1.5);
+  ghost.mesh.rotation.set(Math.PI/2,0,x0>0?Math.PI:0);
   let sk=0;
   return {t:0,dur:3.4,update(dt){
     ghost.mat.opacity=Math.min(.9,ghost.mat.opacity+dt*3);
     ghost.mesh.position.x=lerp(x0,x1,clamp(this.t/3.1,0,1));
-    ghostFaceCam();
     sk-=dt;
     if(sk<=0){ sfx.skitter(panOf(ghost.mesh.position.x,-1.5),.16); sk=.4; }
     if(ghostDist()<3.4){ vanishFx(false); return true; }
@@ -1899,7 +2086,7 @@ function evTV(it){
     if(this.t>1.6&&!this._g){
       this._g=1;
       ghostShow('crawl',.5,.3,it.x-.2,base+1.25,it.z-it.side*.3);
-      ghost.mesh.rotation.y=it.side>0?Math.PI:0;
+      ghost.mesh.rotation.y=Math.atan2(P.x-it.x,P.z-it.z)-Math.PI/2;
       const dx=P.x-it.x, dz=P.z-it.z, l=Math.hypot(dx,dz)||1;
       toX=it.x+dx/l*1.6; toZ=it.z+dz/l*1.6;
       sfx.scream(false); sfx.skitter(0,.25);
@@ -1907,7 +2094,8 @@ function evTV(it){
     if(this._g&&this.t<4.2){
       const tt=clamp((this.t-1.6)/2.6,0,1);
       ghost.mat.opacity=.95;
-      ghost.mesh.scale.set(lerp(.5,1.8,tt),lerp(.3,1.0,tt),1);
+      const sc2=lerp(.35,.95,tt);
+      ghost.mesh.scale.set(sc2,sc2,sc2);
       ghost.mesh.position.x=lerp(it.x-.2,toX,tt);
       ghost.mesh.position.z=lerp(it.z-it.side*.3,toZ,tt);
       ghost.mesh.position.y=lerp(base+1.25,base+.6,tt);
@@ -1988,7 +2176,7 @@ const SHOTS=[
  /* S5 電梯緩慢上升：燈光昏暗閃爍 */
  {dur:14,env:'int',lvl:1,sub:NARR[4],
   cam(t){
-    camera.position.set(Math.sin(cine.t*7)*.008,1.62+Math.sin(cine.t*9)*.006,2.05);
+    camera.position.set(Math.sin(cine.t*7)*.004,1.62+Math.sin(cine.t*9)*.003,2.05);
     camera.lookAt(0,1.5,1.0);
   },
   tick(t){
@@ -2014,7 +2202,7 @@ const SHOTS=[
   cam(t){
     const base=(NF-1)*FH;
     const push=clamp((cine.t-1.7)*.18,0,.42);
-    camera.position.set(-13.05+push,base+1.62,Math.sin(cine.t*1.1)*.03);
+    camera.position.set(-13.05+push,base+1.62,Math.sin(cine.t*1.1)*.015);
     camera.lookAt(13,base+1.35,0);
   },
   tick(t,dt){
@@ -2030,7 +2218,7 @@ const SHOTS=[
     if(this._step<steps.length&&tt>steps[this._step][0]){
       ghost.mesh.position.x=steps[this._step][1];
       this._step++;
-      flickT=.22; staticLv=Math.max(staticLv,.4+this._step*.07);
+      flickT=.12; staticLv=Math.max(staticLv,.22+this._step*.04);
       sfx.skitter(0,.1+this._step*.04);
       playNoise(.12,2400,.1+this._step*.03,'highpass');
       if(this._step>=4) sfx.heartbeat();
@@ -2049,10 +2237,10 @@ const SHOTS=[
   },
   cam(t){
     const fall=t*t;
-    camera.position.set(-12.62+rand(-.07,.07)*t*3,
-      lerp(this._y0,2.4,fall)+rand(-.05,.05),
-      rand(-.06,.06)*t*3);
-    camera.lookAt(13,camera.position.y-.3+rand(-.2,.2),rand(-.4,.4));
+    camera.position.set(-12.62+rand(-.05,.05)*t*1.6,
+      lerp(this._y0,2.4,fall)+rand(-.035,.035),
+      rand(-.04,.04)*t*1.6);
+    camera.lookAt(13,camera.position.y-.35,0);
   },
   tick(t){
     flickT=.2; staticLv=Math.max(staticLv,.5+t*.4);
@@ -2063,7 +2251,6 @@ const SHOTS=[
  /* S8 全景：每層樓的燈瘋狂閃爍，伴著她的嘻笑聲 */
  {dur:11,env:'ext',sub:NARR[7],
   onStart(){
-    winFlicker.visible=true;
     if(ghostWindow) ghostWindow.visible=true;
     giggleFar(rand(-1,1));
     setTimeout(()=>{ if(state==='cine'&&!document.hidden) giggleFar(rand(-1,1)); },2600);
@@ -2071,13 +2258,8 @@ const SHOTS=[
   },
   cam(t){ camLerp(t,[16,8,30],[48,26,68],[0,15,0],[0,15,0]); },
   tick(t){
-    for(let i=0;i<14;i++){
-      const w=winFlicker.children[(Math.random()*winFlicker.children.length)|0];
-      w.visible=Math.random()<.5;
-    }
     if(t>.6&&!this._n9){ this._n9=1; cine.sub=NARR[8]; cine.subT=4; narrateTTS(NARR[8]); }
-  },
-  onEnd(){ winFlicker.visible=false; }}
+  }}
 ];
 const cine={idx:0,t:0,sub:'',subT:0,label:''};
 function setEnvShot(shot){
@@ -2126,7 +2308,6 @@ function cineCleanup(){
   if(cineCabG) cineCabG.visible=false;
   if(cineInd) cineInd.visible=false;
   if(cineLight) cineLight.intensity=0;
-  if(winFlicker) winFlicker.visible=false;
   if(ELEV[1]) ELEV[1].target=0;
 }
 function startCard(){
@@ -2284,7 +2465,7 @@ function makePost(){
   P2.bright=pass(FS_BRIGHT,{t:{value:null},th:{value:.82}});
   P2.blur=pass(FS_BLUR,{t:{value:null},dir:{value:new THREE.Vector2()}});
   P2.comp=pass(FS_COMP,{tS:{value:null},tB:{value:null},time:{value:0},
-    bloomStr:{value:.75},grainAmt:{value:.045},exposure:{value:1.25}});
+    bloomStr:{value:.75},grainAmt:{value:.028},exposure:{value:1.25}});
   P2.build=function(w,h){
     if(P2.rtS){ P2.rtS.dispose(); P2.rtA.dispose(); P2.rtB.dispose(); }
     const gl2=renderer.capabilities&&renderer.capabilities.isWebGL2;
@@ -2508,6 +2689,7 @@ function updateWorldFx(dt,now){
     DUST.position.copy(camera.position);
     DUST.rotation.y=now*.01;
   }
+  ghostAnimate(dt);
 }
 /* ---- 流程 ---- */
 function startPlay(){
@@ -2649,7 +2831,7 @@ function loop(ts){
   if(Math.abs(fade.target-fade.a)<.01) fade.a=fade.target;
   if(msgT>0) msgT-=dt;
   if(cine.subT>0) cine.subT-=dt;
-  if(state==='cine'){ cineUpdate(dt); updateDoors(dt); updateLights(dt,now); }
+  if(state==='cine'){ cineUpdate(dt); updateDoors(dt); updateLights(dt,now); ghostAnimate(dt); }
   else if(state==='card'){ cardT+=dt; if(cardT>3.9) startPlay(); }
   else if(state==='play'){
     playT+=dt;

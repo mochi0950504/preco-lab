@@ -1,0 +1,18 @@
+# UE 產生物，不入版控
+Binaries/
+DerivedDataCache/
+Intermediate/
+Saved/
+Platforms/
+Packaged/
+
+# IDE 產生物
+.vs/
+.vscode/
+.idea/
+*.sln
+*.suo
+*.opensdf
+*.sdf
+*.VC.db
+*.VC.opendb
