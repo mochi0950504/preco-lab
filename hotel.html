@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>十樓的她｜維多利亞大飯店</title>
 <style>
   *{ margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
@@ -11,8 +11,9 @@
   #wrap{ position:fixed; inset:0; background:#000; }
   #wrap canvas{ position:absolute; inset:0; width:100%; height:100%; }
   #fx{ z-index:5; pointer-events:none; }
-  .overlay{ position:fixed; inset:0; display:none; flex-direction:column; align-items:center; justify-content:center;
+  .overlay{ position:fixed; inset:0; display:none; flex-direction:column; align-items:center; justify-content:flex-start;
     background:rgba(0,0,0,.93); z-index:30; text-align:center; padding:24px; overflow-y:auto; }
+  .overlay::before,.overlay::after{ content:''; margin:auto; }
   .overlay.show{ display:flex; }
   .overlay h1{ font-size:44px; letter-spacing:16px; font-weight:700; color:#b9b2a2;
     margin-bottom:6px; text-shadow:0 0 26px rgba(140,30,22,.5); }
@@ -29,13 +30,17 @@
   a.tiny:hover{ color:#9a948a; }
   #touchui{ display:none; position:fixed; inset:0; z-index:20; pointer-events:none; }
   body.touch #touchui{ display:block; }
-  #stick{ position:absolute; left:24px; bottom:24px; width:120px; height:120px; border:1px solid rgba(255,255,255,.18);
+  #stick{ position:absolute; left:calc(24px + env(safe-area-inset-left)); bottom:calc(24px + env(safe-area-inset-bottom));
+    width:120px; height:120px; border:1px solid rgba(255,255,255,.18);
     border-radius:50%; background:rgba(255,255,255,.04); }
   #knob{ position:absolute; left:40px; top:40px; width:40px; height:40px; border-radius:50%; background:rgba(255,255,255,.18); }
   .tbtn{ position:absolute; width:62px; height:62px; border-radius:50%; border:1px solid rgba(255,255,255,.22);
     background:rgba(255,255,255,.06); color:#cfcabe; font-size:13px; display:flex; align-items:center; justify-content:center;
     pointer-events:auto; user-select:none; -webkit-user-select:none; }
-  #btnRun{ right:24px; bottom:120px; } #btnLight{ right:100px; bottom:40px; } #btnE{ right:24px; bottom:40px; }
+  #btnRun{ right:calc(24px + env(safe-area-inset-right)); bottom:calc(120px + env(safe-area-inset-bottom)); }
+  #btnLight{ right:calc(100px + env(safe-area-inset-right)); bottom:calc(40px + env(safe-area-inset-bottom)); }
+  #btnE{ right:calc(24px + env(safe-area-inset-right)); bottom:calc(40px + env(safe-area-inset-bottom)); }
+  #btnPause{ right:calc(18px + env(safe-area-inset-right)); top:calc(18px + env(safe-area-inset-top)); width:46px; height:46px; font-size:15px; }
 </style>
 </head>
 <body>
@@ -46,6 +51,7 @@
   <div class="tbtn" id="btnRun">跑</div>
   <div class="tbtn" id="btnLight">燈</div>
   <div class="tbtn" id="btnE">E</div>
+  <div class="tbtn" id="btnPause">∥</div>
 </div>
 
 <div class="overlay show" id="title">
@@ -801,7 +807,7 @@ function subSwell(){
   const o=AC.createOscillator(), g=AC.createGain(), t=AC.currentTime;
   o.frequency.value=33;
   g.gain.setValueAtTime(0,t);
-  g.gain.linearRampToValueAtTime(.15,t+1.6);
+  g.gain.linearRampToValueAtTime(.08,t+1.6);
   g.gain.linearRampToValueAtTime(0,t+3.4);
   o.connect(g); g.connect(master); o.start(t); o.stop(t+3.5);
 }
@@ -835,7 +841,7 @@ function musicBox(vol,slow){
 }
 const sfx={
   step(mat,run){
-    if(mat==='marble') playTone(rand(700,900),300,.05,run?.12:.07,'square',0,0,.4);
+    if(mat==='marble') playTone(rand(700,900),300,.05,run?.06:.035,'triangle',0,0,.4);
     else if(mat==='wood'){ playNoise(.08,300,run?.16:.1); if(Math.random()<.3) playTone(90,60,.18,.06,'sine',0,0,.5); }
     else if(mat==='stair'){ playNoise(.09,260,run?.18:.12); if(Math.random()<.45) playTone(110,70,.22,.08,'triangle',0,0,.6); }
     else playNoise(.08,run?420:330,run?.14:.08);
@@ -848,7 +854,7 @@ const sfx={
   skitter(pan,vol){ for(let i=0;i<8;i++) playNoise(.03,rand(900,1600),(vol||.1)*rand(.6,1),'bandpass',pan,i*rand(.05,.09),.4); },
   whoosh(pan){ playNoise(.5,800,.22,'bandpass',pan,0,.5); playNoise(.4,300,.14,'lowpass',pan,.05,.5); },
   boneCracks(pan){ for(let i=0;i<6;i++) playNoise(.025,rand(2200,3400),.14,'bandpass',pan,i*rand(.1,.2),.5); },
-  heartbeat(){ playTone(55,40,.13,.45,'sine'); playTone(50,38,.11,.28,'sine',.16); },
+  heartbeat(){ playTone(55,40,.13,.3,'sine'); playTone(50,38,.11,.2,'sine',.16); },
   flash(){ playTone(1800,1200,.03,.07,'square'); },
   paper(){ playNoise(.22,3400,.07,'highpass'); },
   pickup(){ playTone(660,990,.16,.2,'triangle'); },
@@ -856,10 +862,10 @@ const sfx={
   chime(){ playTone(196,0,2.8,.07,'sine',0,0,1.2); playTone(392.5,0,2,.03,'sine',.02,0,1.2); },
   vanish(){ playNoise(.35,2600,.28,'highpass'); playTone(70,45,.45,.3,'square'); },
   scream(big){
-    humanScream(big?330:560,big?1.25:.7,big?.75:.45);
-    if(big){ humanScream(760,1.05,.5,.06); playTone(64,38,1.2,.45,'square',0,0,.5); }
+    humanScream(big?330:560,big?1.25:.7,big?.55:.4);
+    if(big){ humanScream(760,1.05,.4,.06); playTone(64,38,1.2,.3,'square',0,0,.5); }
   },
-  tvOn(){ if(tvGain) tvGain.gain.setTargetAtTime(.16,AC.currentTime,.08); },
+  tvOn(){ if(tvGain) tvGain.gain.setTargetAtTime(.10,AC.currentTime,.08); },
   tvOff(){ if(tvGain) tvGain.gain.setTargetAtTime(0,AC.currentTime,.05); }
 };
 let ttsVoice=null, ttsTried=false;
@@ -1702,6 +1708,8 @@ function ghostFaceCam(){
 function ghostDist(){ return Math.hypot(P.x-ghost.mesh.position.x,P.z-ghost.mesh.position.z); }
 function whisperSet(level,x,z){
   if(!whisperGain||!AC) return;
+  if(level!==0&&Math.abs(level-(whisperSet._l||0))<.02) return;
+  whisperSet._l=level;
   whisperGain.gain.setTargetAtTime(level*.13,AC.currentTime,.15);
   if(whisperPan&&x!==undefined) whisperPan.pan.setTargetAtTime(panOf(x,z),AC.currentTime,.1);
 }
@@ -2058,8 +2066,8 @@ const SHOTS=[
     winFlicker.visible=true;
     if(ghostWindow) ghostWindow.visible=true;
     giggleFar(rand(-1,1));
-    setTimeout(()=>{ if(state==='cine') giggleFar(rand(-1,1)); },2600);
-    setTimeout(()=>{ if(state==='cine'){ giggleFar(rand(-1,1)); humanScream(700,.6,.06,.2,rand(-1,1)); } },5400);
+    setTimeout(()=>{ if(state==='cine'&&!document.hidden) giggleFar(rand(-1,1)); },2600);
+    setTimeout(()=>{ if(state==='cine'&&!document.hidden){ giggleFar(rand(-1,1)); humanScream(700,.6,.06,.2,rand(-1,1)); } },5400);
   },
   cam(t){ camLerp(t,[16,8,30],[48,26,68],[0,15,0],[0,15,0]); },
   tick(t){
@@ -2346,6 +2354,12 @@ function drawFx(dt){
       g.fillText('—— '+cine.label+' ——',W/2,bar*.4);
       g.textAlign='left';
     }
+    if(state==='cine'){
+      g.font=`${Math.max(11,H*.017)|0}px "Noto Sans TC",sans-serif`;
+      g.fillStyle='rgba(140,134,120,.5)'; g.textAlign='right'; g.textBaseline='top';
+      g.fillText(IS_TOUCH?'雙擊畫面跳過 ▸▸':'Enter 跳過 ▸▸',W-18,H-bar*.62);
+      g.textAlign='left';
+    }
   }
   g.textBaseline='top';
   if(cine.subT>0&&(state==='cine'||state==='finale')){
@@ -2366,11 +2380,12 @@ function drawFx(dt){
     g.fillStyle='#8f897d';
     g.fillText(P.lvl===1?'大廳':P.lvl+'F',W/2,12);
     g.textAlign='left';
+    const hudB=IS_TOUCH?H-150:H;
     g.font=`${fs}px "Noto Sans TC",sans-serif`;
     g.fillStyle='#6e6a60';
-    g.fillText(objectiveText(),14,H-fs*2.6);
+    g.fillText(objectiveText(),14,hudB-fs*2.6);
     g.fillStyle='#bfb9aa';
-    g.fillText(`真相 ${collected}/5`,14,H-fs*1.3);
+    g.fillText(`真相 ${collected}/5`,14,hudB-fs*1.3);
     if(P.flashOn===false){ g.fillStyle='#5f5b53'; g.fillText('燈 OFF',W-70,12); }
     if(state==='play'&&P.prompt){
       const lb=promptLabel(P.prompt);
@@ -2461,7 +2476,8 @@ function updateAmbience(dt){
   creakT-=dt;
   if(creakT<=0){ creakT=rand(7,16); sfx.creak(rand(-1,1)); }
   thunderT-=dt;
-  if(thunderT<=0){ thunderT=rand(28,64); ambFlashT=.5; setTimeout(()=>{ if(AC) sfx.thunder(); },rand(600,2200)); }
+  if(thunderT<=0){ thunderT=rand(28,64); ambFlashT=.5;
+    setTimeout(()=>{ if(AC&&!document.hidden&&(state==='play'||state==='read')) sfx.thunder(); },rand(600,2200)); }
   if(director.active&&ghost&&ghost.mesh.visible){
     const d=ghostDist();
     if(d<7){ hbT-=dt;
@@ -2543,6 +2559,7 @@ document.addEventListener('keydown',e=>{
   if(['ArrowUp','ArrowDown','Space'].includes(e.code)) e.preventDefault();
 });
 document.addEventListener('keyup',e=>{ keys[e.code]=false; });
+document.addEventListener('pointerdown',()=>{ if(AC&&AC.state!=='running'&&state!=='pause') AC.resume(); });
 document.addEventListener('pointerlockchange',()=>{
   locked=document.pointerLockElement===renderer.domElement;
   if(!locked&&state==='play') pauseGame();
@@ -2575,9 +2592,14 @@ function setupTouch(){
       else if(lookTouch===null&&!(e.target.classList&&e.target.classList.contains('tbtn')))
         lookTouch={id:t.identifier,x:t.clientX,y:t.clientY};
     }
-    if(state==='cine') skipCine();
+    if(state==='cine'){
+      const n2=Date.now();
+      if(n2-(setupTouch._tap||0)<400) skipCine();
+      setupTouch._tap=n2;
+    }
   },{passive:true});
   window.addEventListener('touchmove',e=>{
+    if(state!=='play'&&state!=='finale') return;
     for(const t of e.changedTouches){
       if(t.identifier===stickTouch) moveStick(t);
       else if(lookTouch&&t.identifier===lookTouch.id){
@@ -2610,6 +2632,7 @@ function setupTouch(){
   hold('btnRun',()=>P.run=true,()=>P.run=false);
   hold('btnLight',()=>{ if(state==='play'){P.flashOn=!P.flashOn; sfx.flash();} });
   hold('btnE',()=>{ if(state==='read') closeReading(); else interactPulse=true; });
+  hold('btnPause',()=>{ if(state==='play'||state==='read') pauseGame(); });
 }
 if(IS_TOUCH) setupTouch();
 document.getElementById('btnStart').addEventListener('click',startGame);

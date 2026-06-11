@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>地下三樓｜B3</title>
 <style>
   :root{ --red:#c0392b; }
@@ -11,8 +11,11 @@
     font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif; color:#cfcabe; }
   #wrap{ position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:#000; }
   canvas#view{ image-rendering:pixelated; image-rendering:crisp-edges; background:#000; cursor:crosshair; }
-  .overlay{ position:fixed; inset:0; display:none; flex-direction:column; align-items:center; justify-content:center;
-    background:rgba(0,0,0,.92); z-index:30; text-align:center; padding:24px; }
+  .overlay{ position:fixed; inset:0; display:none; flex-direction:column; align-items:center; justify-content:flex-start;
+    background:rgba(0,0,0,.92); z-index:30; text-align:center; padding:24px; overflow-y:auto; }
+  .overlay::before,.overlay::after{ content:''; margin:auto; }
+  a.tiny{ color:#5f5b53; font-size:11px; letter-spacing:2px; text-decoration:none; margin-top:18px; }
+  a.tiny:hover{ color:#9a948a; }
   .overlay.show{ display:flex; }
   .overlay h1{ font-size:42px; letter-spacing:14px; font-weight:700; color:#b9b2a2; margin-bottom:4px; text-shadow:0 0 24px rgba(150,30,20,.5); }
   .overlay h2{ font-size:13px; letter-spacing:4px; color:#6e6a60; font-weight:400; margin-bottom:26px; }
@@ -29,13 +32,17 @@
   /* 觸控 UI */
   #touchui{ display:none; position:fixed; inset:0; z-index:20; pointer-events:none; }
   body.touch #touchui{ display:block; }
-  #stick{ position:absolute; left:24px; bottom:24px; width:120px; height:120px; border:1px solid rgba(255,255,255,.18);
+  #stick{ position:absolute; left:calc(24px + env(safe-area-inset-left)); bottom:calc(24px + env(safe-area-inset-bottom));
+    width:120px; height:120px; border:1px solid rgba(255,255,255,.18);
     border-radius:50%; background:rgba(255,255,255,.04); }
   #knob{ position:absolute; left:40px; top:40px; width:40px; height:40px; border-radius:50%; background:rgba(255,255,255,.18); }
   .tbtn{ position:absolute; width:62px; height:62px; border-radius:50%; border:1px solid rgba(255,255,255,.22);
     background:rgba(255,255,255,.06); color:#cfcabe; font-size:13px; display:flex; align-items:center; justify-content:center;
     pointer-events:auto; user-select:none; -webkit-user-select:none; }
-  #btnRun{ right:24px; bottom:120px; } #btnLight{ right:100px; bottom:40px; } #btnE{ right:24px; bottom:40px; }
+  #btnRun{ right:calc(24px + env(safe-area-inset-right)); bottom:calc(120px + env(safe-area-inset-bottom)); }
+  #btnLight{ right:calc(100px + env(safe-area-inset-right)); bottom:calc(40px + env(safe-area-inset-bottom)); }
+  #btnE{ right:calc(24px + env(safe-area-inset-right)); bottom:calc(40px + env(safe-area-inset-bottom)); }
+  #btnPause{ right:calc(18px + env(safe-area-inset-right)); top:calc(18px + env(safe-area-inset-top)); width:46px; height:46px; font-size:15px; }
 </style>
 </head>
 <body>
@@ -46,6 +53,7 @@
   <div class="tbtn" id="btnRun">跑</div>
   <div class="tbtn" id="btnLight">燈</div>
   <div class="tbtn" id="btnE">E</div>
+  <div class="tbtn" id="btnPause">∥</div>
 </div>
 
 <div class="overlay show" id="title">
@@ -68,6 +76,7 @@
   </div>
   <div class="warn">⚠ 本遊戲含突發驚嚇畫面與巨大聲響，請戴耳機並調整音量 ⚠</div>
   <button class="go" id="btnStart">開始錄影</button>
+  <a class="tiny" href="hotel.html">續作：《十樓的她》→</a>
 </div>
 
 <div class="overlay" id="dead">
@@ -82,6 +91,7 @@
   <h2>但攝影機拍到的東西，你一輩子都忘不掉</h2>
   <div class="stats" id="winStats"></div>
   <button class="go" id="btnAgain">再玩一次</button>
+  <a class="tiny" href="hotel.html">三十年後，那台攝影機又開機了——《十樓的她》→</a>
 </div>
 
 <div class="overlay" id="pause">
@@ -336,7 +346,7 @@ function subSwell(){
   const o=AC.createOscillator(), g=AC.createGain(), t=AC.currentTime;
   o.frequency.value=34;
   g.gain.setValueAtTime(0,t);
-  g.gain.linearRampToValueAtTime(.16,t+1.6);
+  g.gain.linearRampToValueAtTime(.08,t+1.6);
   g.gain.linearRampToValueAtTime(0,t+3.4);
   o.connect(g); g.connect(master);
   o.start(t); o.stop(t+3.5);
@@ -346,7 +356,7 @@ function giggleFar(pan){
 }
 const sfx={
   step(run){ playNoise(.09, run?460:360, run?.22:.13); },
-  heartbeat(){ playTone(55,40,.13,.5,'sine'); playTone(50,38,.11,.3,'sine',.16); },
+  heartbeat(){ playTone(55,40,.13,.32,'sine'); playTone(50,38,.11,.2,'sine',.16); },
   pickup(){ playTone(660,990,.16,.22,'triangle'); },
   fuse(){ playTone(90,70,.08,.4,'square'); playNoise(.15,220,.3); },
   battery(){ playTone(440,880,.12,.18,'triangle'); playTone(880,1320,.1,.12,'triangle',.1); },
@@ -363,10 +373,10 @@ const sfx={
   paper(){ playNoise(.22,3400,.07,'highpass'); },
   install(){ playTone(110,78,.07,.32,'square'); playNoise(.07,4200,.09,'highpass'); },
   scream(){
-    humanScream(330,1.25,.8);
-    humanScream(760,1.05,.5,.06);
-    playTone(64,38,1.2,.5,'square',0,0,.5);
-    playNoise(1.0,900,.35,'highpass',0,0,.5);
+    humanScream(330,1.25,.55);
+    humanScream(760,1.05,.4,.06);
+    playTone(64,38,1.2,.3,'square',0,0,.5);
+    playNoise(1.0,900,.3,'highpass',0,0,.5);
   }
 };
 
@@ -702,6 +712,7 @@ function setupTouch(){
     }
   },{passive:true});
   window.addEventListener('touchmove',e=>{
+    if(state!=='playing') return;
     for(const t of e.changedTouches){
       if(t.identifier===stickTouch) moveStick(t);
       else if(lookTouch&&t.identifier===lookTouch.id){ P.ang+=(t.clientX-lookTouch.x)*0.006; lookTouch.x=t.clientX; }
@@ -730,6 +741,7 @@ function setupTouch(){
   hold('btnRun',()=>P.run=true,()=>P.run=false);
   hold('btnLight',()=>{ if(state==='playing'){flashOn=!flashOn; sfx.flash();} });
   hold('btnE',()=>interactPulse=true);
+  hold('btnPause',()=>{ if(state==='playing') pauseGame(); });
 }
 if(IS_TOUCH) setupTouch();
 
@@ -971,7 +983,8 @@ function updateEntity(dt){
   // 耳語 & 雜訊
   const near=clamp(1-d/5.5,0,1)*(seeing?1:.45);
   staticLv=near;
-  if(whisperGain&&AC){
+  if(whisperGain&&AC&&Math.abs(near-(updateEntity._lastW||0))>.02){
+    updateEntity._lastW=near;
     whisperGain.gain.setTargetAtTime(near*.12,AC.currentTime,.15);
     if(whisperPan){ const rel=Math.atan2(E.y-P.y,E.x-P.x)-P.ang;
       whisperPan.pan.setTargetAtTime(clamp(Math.sin(rel),-1,1),AC.currentTime,.1); }
@@ -1160,11 +1173,16 @@ function renderHUD(){
   ctx.fillStyle=P.exhausted?'#a8473a':'rgba(255,255,255,.5)';
   ctx.fillRect(W-66,42,46*P.stamina/100,3);
   // 保險絲與目標
+  const hudX=IS_TOUCH?108:12;
   ctx.font='12px "Noto Sans TC",sans-serif'; ctx.fillStyle='#bfb9aa';
-  ctx.fillText(`保險絲 ${fuses}/4`,12,H-22);
-  for(let i=0;i<4;i++){ ctx.fillStyle=i<fuses?'#e8b554':'rgba(255,255,255,.14)'; ctx.fillRect(74+i*11,H-19,7,9); }
+  ctx.fillText(`保險絲 ${fuses}/4`,hudX,H-22);
+  for(let i=0;i<4;i++){ ctx.fillStyle=i<fuses?'#e8b554':'rgba(255,255,255,.14)'; ctx.fillRect(hudX+62+i*11,H-19,7,9); }
   ctx.font='10px "Noto Sans TC",sans-serif'; ctx.fillStyle='#6e6a60';
-  ctx.fillText(powered?'目標：逃出去！！':(fuses>=4?'目標：回到出口旁的配電箱':'目標：搜索保險絲'),12,H-38);
+  ctx.fillText(powered?'目標：逃出去！！':(fuses>=4?'目標：回到出口旁的配電箱':'目標：搜索保險絲'),hudX,H-38);
+  if(IS_TOUCH&&window.innerHeight>window.innerWidth){
+    ctx.textAlign='center'; ctx.fillStyle='rgba(216,210,194,.55)';
+    ctx.fillText('↻ 建議橫向遊玩',W/2,26); ctx.textAlign='left';
+  }
   // 互動提示
   if(P.prompt&&readingNote===null){
     let txt='';
@@ -1253,7 +1271,13 @@ document.getElementById('btnStart').addEventListener('click',startGame);
 document.getElementById('btnRetry').addEventListener('click',startGame);
 document.getElementById('btnAgain').addEventListener('click',startGame);
 document.getElementById('btnResume').addEventListener('click',resumeGame);
-document.addEventListener('visibilitychange',()=>{ if(document.hidden) pauseGame(); });
+document.addEventListener('visibilitychange',()=>{
+  if(document.hidden){
+    if(state==='playing') pauseGame();
+    else if(AC) AC.suspend();
+  }else if(state!=='paused'&&AC) AC.resume();
+});
+document.addEventListener('pointerdown',()=>{ if(AC&&AC.state!=='running'&&state!=='paused') AC.resume(); });
 
 /* ============================== 主迴圈 ============================== */
 function makeVignette(){
