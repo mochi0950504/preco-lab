@@ -124,7 +124,7 @@ function makeNormal(src,strength){
   for(let y=0;y<h;y++)for(let x=0;x<w;x++){
     const dx=(L(x+1,y)-L(x-1,y))*strength, dy=(L(x,y+1)-L(x,y-1))*strength;
     const nz=1/Math.sqrt(dx*dx+dy*dy+1), p=(y*w+x)*4;
-    od.data[p]=(-dx*nz*.5+.5)*255; od.data[p+1]=(-dy*nz*.5+.5)*255;
+    od.data[p]=(-dx*nz*.5+.5)*255; od.data[p+1]=(dy*nz*.5+.5)*255;
     od.data[p+2]=nz*255; od.data[p+3]=255;
   }
   og.putImageData(od,0,0); return out;
@@ -956,6 +956,7 @@ function initScene(){
   flash.shadow.bias=-.002;
   flashTgt=new THREE.Object3D(); scene.add(flashTgt);
   flash.target=flashTgt; scene.add(flash);
+  flash.intensity=0;
   // 體積光錐（塵霧中的光柱）
   const bc=mkCanvas(64,64), bg2=bc.getContext('2d');
   const bgr=bg2.createLinearGradient(0,0,0,64);
@@ -1660,18 +1661,14 @@ function updateDoors(dt){
 let staticLv=0, GTEX={}, ghost=null;
 function ghostInit(){
   for(const k in POSE) GTEX[k]=ctex1(POSE[k]);
-  const mat=new THREE.MeshBasicMaterial({map:GTEX.stand,transparent:true,opacity:0,depthWrite:false,side:THREE.DoubleSide});
+  const mat=new THREE.MeshBasicMaterial({map:GTEX.stand,transparent:true,opacity:0,depthWrite:false,side:THREE.DoubleSide,alphaTest:.01});
   ghost={mesh:new THREE.Mesh(new THREE.PlaneGeometry(1,1),mat),mat};
   ghost.mesh.visible=false; ghost.mesh.renderOrder=5;
   ghost.mesh.castShadow=true;
-  ghost.mesh.customDepthMaterial=new THREE.MeshDepthMaterial({
-    depthPacking:THREE.RGBADepthPacking,map:GTEX.stand,alphaTest:.45});
   scene.add(ghost.mesh);
 }
 function ghostShow(pose,w,h,x,y,z){
   ghost.mat.map=GTEX[pose]; ghost.mat.opacity=0;
-  ghost.mesh.customDepthMaterial.map=GTEX[pose];
-  ghost.mesh.customDepthMaterial.needsUpdate=true;
   ghost.mesh.scale.set(w,h,1); ghost.mesh.position.set(x,y,z);
   ghost.mesh.rotation.set(0,0,0); ghost.mesh.visible=true;
 }
@@ -2111,6 +2108,8 @@ function startCard(){
 const finale={t:0,papers:0,motes:null,started:false};
 function startFinale(){
   state='finale'; finale.t=0; finale.started=true;
+  P.flashOn=false; flash.intensity=0;
+  if(beam) beam.visible=false;
   director.force&&director.active&&director.force({t:0,dur:0,update(){return true;}});
   ghostHide();
 }
@@ -2254,10 +2253,11 @@ function makePost(){
     bloomStr:{value:.75},grainAmt:{value:.045},exposure:{value:1.25}});
   P2.build=function(w,h){
     if(P2.rtS){ P2.rtS.dispose(); P2.rtA.dispose(); P2.rtB.dispose(); }
-    const ms=renderer.capabilities&&renderer.capabilities.isWebGL2?4:0;
-    P2.rtS=new THREE.WebGLRenderTarget(w,h,{type:THREE.HalfFloatType,samples:ms});
-    P2.rtA=new THREE.WebGLRenderTarget(w>>1,h>>1,{type:THREE.HalfFloatType});
-    P2.rtB=new THREE.WebGLRenderTarget(w>>1,h>>1,{type:THREE.HalfFloatType});
+    const gl2=renderer.capabilities&&renderer.capabilities.isWebGL2;
+    const ms=gl2?4:0, ht=gl2?THREE.HalfFloatType:THREE.UnsignedByteType;
+    P2.rtS=new THREE.WebGLRenderTarget(w,h,{type:ht,samples:ms});
+    P2.rtA=new THREE.WebGLRenderTarget(w>>1,h>>1,{type:ht});
+    P2.rtB=new THREE.WebGLRenderTarget(w>>1,h>>1,{type:ht});
     P2.w=w; P2.h=h;
   };
   P2.render=function(now){
