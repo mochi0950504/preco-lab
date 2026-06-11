@@ -648,6 +648,8 @@ const NOTE_DEFS=[
 let notes=[], phone=null, phantom=null, readingNote=null, rereadScared=false;
 const fusebox={x:22.5,y:2.5};
 let installT=-1, installStep=0, ventDone=false, focusT=0, ambT=8;
+let sched=[];
+function schedule(delay,fn){ sched.push({at:gameT+delay,fn}); }
 const keys={};
 function showMsg(t,d=3.2){ msg=t; msgT=d; }
 function resetGame(){
@@ -662,22 +664,24 @@ function resetGame(){
   phone={x:11.5,y:12.5,ringing:false,answered:false,done:false,ringT:0,rings:0,silentT:-1};
   phantom=null; readingNote=null; rereadScared=false;
   installT=-1; installStep=0; ventDone=false; focusT=0; ambT=8;
+  sched=[]; E.stepT=0; interactPulse=false;
   if(humGain) humGain.gain.setTargetAtTime(0,AC.currentTime,.1);
   showMsg('找到 4 顆保險絲，恢復供電。（F：手電筒）',5);
 }
 
 /* ============================== 輸入 ============================== */
 let locked=false, touchMove={x:0,y:0}, lookTouch=null;
+const IS_TOUCH=('ontouchstart' in window)&&(!window.matchMedia||window.matchMedia('(pointer: coarse)').matches);
 document.addEventListener('keydown',e=>{
   keys[e.code]=true;
   if(e.code==='KeyF'&&state==='playing'){ flashOn=!flashOn; sfx.flash(); }
-  if(e.code==='KeyE') interactPulse=true;
+  if(e.code==='KeyE'&&state==='playing') interactPulse=true;
   if(e.code==='Escape'&&state==='playing') pauseGame();
   if(['ArrowUp','ArrowDown','Space'].includes(e.code)) e.preventDefault();
 });
 document.addEventListener('keyup',e=>{ keys[e.code]=false; });
 canvas.addEventListener('click',()=>{
-  if(state==='playing'&&!locked&&!('ontouchstart' in window)) canvas.requestPointerLock&&canvas.requestPointerLock();
+  if(state==='playing'&&!locked&&!(IS_TOUCH)) canvas.requestPointerLock&&canvas.requestPointerLock();
 });
 document.addEventListener('pointerlockchange',()=>{
   locked=document.pointerLockElement===canvas;
@@ -704,12 +708,14 @@ function setupTouch(){
     }
     e.preventDefault();
   },{passive:false});
-  window.addEventListener('touchend',e=>{
+  const touchEnd=e=>{
     for(const t of e.changedTouches){
       if(t.identifier===stickTouch){ stickTouch=null; touchMove={x:0,y:0}; knob.style.left='40px'; knob.style.top='40px'; }
       if(lookTouch&&t.identifier===lookTouch.id) lookTouch=null;
     }
-  },{passive:true});
+  };
+  window.addEventListener('touchend',touchEnd,{passive:true});
+  window.addEventListener('touchcancel',touchEnd,{passive:true});
   function moveStick(t){
     const r=stick.getBoundingClientRect(), cx=r.left+60, cy=r.top+60;
     let dx=(t.clientX-cx)/50, dy=(t.clientY-cy)/50;
@@ -719,12 +725,13 @@ function setupTouch(){
   }
   const hold=(id,on,off)=>{ const el=document.getElementById(id);
     el.addEventListener('touchstart',e=>{e.preventDefault();on();},{passive:false});
-    if(off) el.addEventListener('touchend',e=>{e.preventDefault();off();},{passive:false}); };
+    if(off){ el.addEventListener('touchend',e=>{e.preventDefault();off();},{passive:false});
+      el.addEventListener('touchcancel',e=>{off();},{passive:false}); } };
   hold('btnRun',()=>P.run=true,()=>P.run=false);
   hold('btnLight',()=>{ if(state==='playing'){flashOn=!flashOn; sfx.flash();} });
   hold('btnE',()=>interactPulse=true);
 }
-if('ontouchstart' in window) setupTouch();
+if(IS_TOUCH) setupTouch();
 
 /* ============================== 玩家更新 ============================== */
 function tryMove(nx,ny){
@@ -825,8 +832,8 @@ function answerPhone(){
   phone.answered=true; phone.ringing=false; phone.done=true;
   playNoise(1.6,1900,.14,'bandpass');
   showMsg('（聽筒裡只有雜訊，和很慢、很慢的呼吸聲。）',3);
-  setTimeout(()=>{ if(state==='playing'){ playNoise(1.2,1100,.1,'bandpass'); showMsg('「……不要……回頭……」',2.8); } },3000);
-  setTimeout(()=>{ if(state==='playing') spawnPhantom(); },4600);
+  schedule(3.0,()=>{ playNoise(1.2,1100,.1,'bandpass'); showMsg('「……不要……回頭……」',2.8); });
+  schedule(4.6,()=>spawnPhantom());
 }
 function spawnPhantom(){
   if(phantom) return;
@@ -896,7 +903,7 @@ function updateExtras(dt){
 }
 function powerOn(){
   powered=true; sfx.roar(); humanScream(260,1.5,.45,.15);
-  if(phone) phone.done=true;
+  if(phone){ phone.done=true; phone.ringing=false; }
   if(humGain) humGain.gain.setTargetAtTime(.013,AC.currentTime,.3);
   showMsg('電力恢復。逃生門解鎖了——快逃！！',5);
   // 它從深處出現，進入永久追獵
@@ -904,7 +911,7 @@ function powerOn(){
   for(const [x,y] of [[2,21],[8,15],[2,2],[15,18],[18,8]]){
     const d=dist2(P.x,P.y,x+.5,y+.5); if(d>bd&&!solid(x,y)){bd=d;best=[x,y];} }
   E.x=best[0]+.5; E.y=best[1]+.5; E.mode='hunt'; E.path=[]; E.repath=0;
-  setTimeout(()=>{ if(state==='playing') sfx.stinger(); },900);
+  schedule(.9,()=>sfx.stinger());
 }
 
 /* ============================== 「它」的 AI ============================== */
@@ -970,7 +977,7 @@ function updateEntity(dt){
       whisperPan.pan.setTargetAtTime(clamp(Math.sin(rel),-1,1),AC.currentTime,.1); }
   }
   // 手電筒受干擾閃爍
-  if(d<5&&flashOn){ if(Math.random()<dt*7) flickT=rand(.04,.16); }
+  if(d<5&&flashOn&&battery>0){ if(Math.random()<dt*7) flickT=rand(.04,.16); }
   if(flickT>0){ flickT-=dt; flickV=Math.random()<.5?rand(.1,.4):1; if(Math.random()<.3) playTone(2200,1800,.03,.03,'square'); }
   else flickV=1;
   // 抓到
@@ -984,9 +991,9 @@ function updateEvents(dt){
   eventT=rand(16,34);
   const r=Math.random(), pan=rand(-1,1);
   if(r<.3) sfx.bang(pan);
-  else if(r<.5){ sfx.drip(pan); setTimeout(()=>sfx.drip(pan*.5),300); setTimeout(()=>sfx.drip(pan),650); }
+  else if(r<.5){ sfx.drip(pan); schedule(.3,()=>sfx.drip(pan*.5)); schedule(.65,()=>sfx.drip(pan)); }
   else if(r<.68) sfx.hum(pan);
-  else if(r<.8){ flickT=rand(.3,.7); playNoise(.5,1600,.1,'bandpass'); }
+  else if(r<.8){ if(flashOn&&battery>0){ flickT=rand(.3,.7); playNoise(.5,1600,.1,'bandpass'); } }
   else if(r<.9){ playNoise(.7,500,.18,'bandpass',pan); showMsg('……那是腳步聲嗎？',2.2); }
   else if(gameT>80&&!phantom){ spawnPhantom(); }
   else{ focusT=.7; playTone(900,1240,.07,.05,'square'); playTone(900,1240,.07,.05,'square',.12); }
@@ -1222,6 +1229,8 @@ function startWin(){
 function pauseGame(){
   if(state!=='playing') return;
   state='paused';
+  for(const k in keys) keys[k]=false;
+  P.run=false; interactPulse=false;
   document.getElementById('pause').classList.add('show');
   if(AC) AC.suspend();
   document.exitPointerLock&&document.exitPointerLock();
@@ -1229,15 +1238,16 @@ function pauseGame(){
 function resumeGame(){
   document.getElementById('pause').classList.remove('show');
   if(AC) AC.resume();
+  interactPulse=false;
   state='playing';
-  if(!('ontouchstart' in window)) canvas.requestPointerLock&&canvas.requestPointerLock();
+  if(!(IS_TOUCH)) canvas.requestPointerLock&&canvas.requestPointerLock();
 }
 function startGame(){
   audioInit(); AC.resume();
   ['title','dead','win','pause'].forEach(id=>document.getElementById(id).classList.remove('show'));
   resetGame();
   state='playing';
-  if(!('ontouchstart' in window)) canvas.requestPointerLock&&canvas.requestPointerLock();
+  if(!(IS_TOUCH)) canvas.requestPointerLock&&canvas.requestPointerLock();
 }
 document.getElementById('btnStart').addEventListener('click',startGame);
 document.getElementById('btnRetry').addEventListener('click',startGame);
@@ -1266,6 +1276,9 @@ function loop(ts){
   const dt=clamp((ts-lastT)/1000,0,0.05); lastT=ts;
   if(state==='playing'){
     gameT+=dt; if(msgT>0) msgT-=dt;
+    for(let i=sched.length-1;i>=0;i--){
+      if(gameT>=sched[i].at){ const f=sched[i].fn; sched.splice(i,1); f(); }
+    }
     updatePlayer(dt);
     updateEntity(dt);
     updateEvents(dt);
